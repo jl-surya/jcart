@@ -44,41 +44,51 @@ javac -cp "lib/*" -d WEB-INF/classes src/**/*.java
 ```
 JCart/
 ├── build/
-│   └── deploy.sh                       # Deployment script
+│   └── deploy.sh                           # Deployment script
 ├── seed/
-│   ├── init_db.sql                     # Database schema & seed data
-│   └── products.csv                    # Initial product data
+│   ├── init_db.sql                         # Database schema & seed data
+│   └── products.csv                        # Initial product data
 ├── src/
 │   ├── config/
-│   │   └── AsyncExecutor.java          # Thread pool for async operations
+│   │   └── AsyncExecutor.java              # Thread pool for async operations
 │   ├── controller/
-│   │   ├── BaseController.java         # Base controller with common methods
-│   │   └── CustomerController.java     # Customer endpoints (register, login, profile)
+│   │   ├── AdminController.java            # Admin endpoints (login, profile, password)
+│   │   ├── AdminManagementController.java  # Admin CRUD operations
+│   │   ├── BaseController.java             # Base controller with common methods
+│   │   ├── CustomerController.java         # Customer endpoints (register, login, profile)
+│   │   └── CustomerManagementController.java # Customer management for admins
 │   ├── dao/
-│   │   ├── CustomerDAO.java            # Customer database operations
-│   │   └── SessionDAO.java             # Session database operations
+│   │   ├── AdminDAO.java                   # Admin database operations
+│   │   ├── CustomerDAO.java                # Customer database operations
+│   │   └── SessionDAO.java                 # Session database operations
 │   ├── dto/
-│   │   ├── ApiResponse.java            # Standard API response wrapper
-│   │   ├── CustomerLoginRequest.java   # Customer login DTO
-│   │   ├── CustomerRegisterRequest.java # Customer registration DTO
-│   │   ├── CustomerUpdateRequest.java  # Customer profile update DTO
-│   │   └── PasswordChangeRequest.java  # Password change DTO
+│   │   ├── AdminLoginRequest.java          # Admin login DTO
+│   │   ├── AdminRegisterRequest.java       # Admin registration DTO
+│   │   ├── AdminUpdateRequest.java         # Admin profile update DTO
+│   │   ├── ApiResponse.java                # Standard API response wrapper
+│   │   ├── CustomerLoginRequest.java       # Customer login DTO
+│   │   ├── CustomerRegisterRequest.java    # Customer registration DTO
+│   │   ├── CustomerUpdateRequest.java      # Customer profile update DTO
+│   │   └── PasswordChangeRequest.java      # Password change DTO
 │   ├── filter/
-│   │   └── CustomerAuthFilter.java     # Authentication filter for customer endpoints
+│   │   ├── AdminAuthFilter.java            # Authentication filter for admin endpoints
+│   │   └── CustomerAuthFilter.java         # Authentication filter for customer endpoints
 │   ├── model/
-│   │   ├── Customer.java               # Customer entity
-│   │   └── Session.java                # Session entity with rolling expiry
+│   │   ├── Admin.java                      # Admin entity
+│   │   ├── Customer.java                   # Customer entity
+│   │   └── Session.java                    # Session entity with rolling expiry
 │   ├── service/
-│   │   └── CustomerService.java        # Customer business logic
+│   │   ├── AdminService.java               # Admin business logic
+│   │   └── CustomerService.java            # Customer business logic
 │   └── util/
-│       ├── DBUtil.java                 # Database connection utility
-│       ├── JsonUtil.java               # JSON serialization/deserialization
-│       ├── PasswordUtil.java           # Password hashing & verification
-│       ├── SessionCache.java           # In-memory session cache with periodic persistence
-│       └── SessionPersister.java       # Background session persistence
+│       ├── DBUtil.java                     # Database connection utility
+│       ├── JsonUtil.java                   # JSON serialization/deserialization
+│       ├── PasswordUtil.java               # Password hashing & verification
+│       ├── SessionCache.java               # In-memory session cache with periodic persistence
+│       └── SessionPersister.java           # Background session persistence
 ├── WEB-INF/
-│   ├── classes/                        # Compiled .class files
-│   └── web.xml                         # Servlet configuration
+│   ├── classes/                            # Compiled .class files
+│   └── web.xml                             # Servlet configuration
 ├── .gitignore
 └── README.md
 ```
@@ -105,6 +115,17 @@ JCart/
    - DTO Pattern - Clean separation between request/response and database entities
    - Auth Filter - Protects all `/customer/*` endpoints except login/register
 
+3. Admin Authentication & Management - admin auth, role-based permissions, and customer management for admins
+   - Admin Login - Authenticate with superadmin seeded in database
+   - Admin Profile Management - View and update own profile
+   - Admin Password Change - Change password with old password verification
+   - Admin CRUD - List, get, create, update, and deactivate admins
+   - Role-Based Permissions - Array-based permission system (`admin:view`, `admin:create`, `admin:update`, `admin:delete`, `customers:view`, `customers:delete`)
+   - Superadmin Protection - Superadmin cannot be deactivated or modified
+   - Customer Management - Admins can list, get, and deactivate customers
+   - Auth Filter - Protects all `/admin/*` endpoints with separate filter
+   - Soft Delete - Deactivation sets `is_active = false` for both admins and customers
+
 ## Customer Endpoints
 
 | Endpoint              | Method          | Description                              |
@@ -116,3 +137,21 @@ JCart/
 | `/customer/profile`   | POST (PATCH)    | Update profile (username, email, phone)  |
 | `/customer/password`  | POST            | Change password                          |
 | `/customer/account`   | POST (DELETE)   | Deactivate own account                   |
+
+## Admin Endpoints
+
+| Endpoint                    | Method        | Required Permission  | Description                              |
+|-----------------------------|---------------|----------------------|------------------------------------------|
+| `/admin/login`              | POST          | Public               | Admin login                              |
+| `/admin/logout`             | POST          | Authenticated        | Admin logout                             |
+| `/admin/profile`            | GET           | Authenticated        | Get own profile                          |
+| `/admin/profile`            | POST (PATCH)  | Authenticated        | Update own profile                       |
+| `/admin/profile/password`   | POST          | Authenticated        | Change own password                      |
+| `/admin/admins`             | GET           | `admin:view`         | List all admins                          |
+| `/admin/admins/{id}`        | GET           | `admin:view`         | Get specific admin                       |
+| `/admin/admins`             | POST          | `admin:create`       | Create new admin                         |
+| `/admin/admins/{id}`        | POST (PATCH)  | `admin:update`       | Update admin (role, permissions, status) |
+| `/admin/admins/{id}`        | POST (DELETE) | `admin:delete`       | Deactivate admin                         |
+| `/admin/customers`          | GET           | `customers:view`     | List all customers                       |
+| `/admin/customers/{id}`     | GET           | `customers:view`     | Get specific customer                    |
+| `/admin/customers/{id}`     | POST (DELETE) | `customers:delete`   | Deactivate customer                      |

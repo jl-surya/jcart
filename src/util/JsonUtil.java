@@ -231,4 +231,30 @@ public class JsonUtil {
             return json.substring(start, end).trim();
         }
     }
+
+    /**
+     * Extracts array value for a key from JSON string.
+     *
+     * @param json the JSON string
+     * @param key  the key whose array value to extract
+     * @return the extracted array string (including brackets), or null if not found
+     */
+    public static String getArrayString(String json, String key) {
+        if (json == null || json.isEmpty()) return null;
+        
+        String searchKey = "\"" + key + "\"";
+        int keyIndex = json.indexOf(searchKey);
+        if (keyIndex == -1) return null;
+        
+        int colonIndex = json.indexOf(":", keyIndex);
+        if (colonIndex == -1) return null;
+        
+        int startBracket = json.indexOf("[", colonIndex);
+        if (startBracket == -1) return null;
+        
+        int endBracket = json.indexOf("]", startBracket);
+        if (endBracket == -1) return null;
+        
+        return json.substring(startBracket, endBracket + 1);
+    }
 }
