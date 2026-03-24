@@ -11,34 +11,16 @@ import model.Session;
  * 
  * Includes:
  * - Concurrent session storage with token mapping
- * - Automatic expiration cleanup
  * - Dirty session tracking for persistence
- * - Background sync with database
  * - Session validation and retrieval
+ * - Session cleanup methods
  */
 public class SessionCache {
     
     private static final Map<UUID, Session> sessionCache = new ConcurrentHashMap<>();
     private static final Map<String, UUID> tokenToIdCache = new ConcurrentHashMap<>();
-    private static final ScheduledExecutorService executor = Executors.newScheduledThreadPool(2);
-    private static SessionPersister persister;
+    private static final SessionPersister persister = new SessionPersister();
     private static final AtomicInteger totalSyncs = new AtomicInteger(0);
-    
-    static {
-        persister = new SessionPersister();
-        
-        // Schedule expired session cleanup every 5 minutes
-        executor.scheduleAtFixedRate(SessionCache::cleanExpiredSessions, 5, 5, TimeUnit.MINUTES);
-        
-        // Schedule dirty session persistence every 10 minutes
-        executor.scheduleAtFixedRate(() -> {
-            try {
-                persister.persistDirtySessions(sessionCache);
-            } catch (Exception e) {
-                e.printStackTrace();
-            }
-        }, 10, 10, TimeUnit.MINUTES);
-    }
     
     /**
      * Adds or updates a session in the cache.
@@ -176,7 +158,7 @@ public class SessionCache {
      *
      * @return map of all sessions
      */
-    static Map<UUID, Session> getAllSessions() {
+    public static Map<UUID, Session> getAllSessions() {
         return new ConcurrentHashMap<>(sessionCache);
     }
     
@@ -219,7 +201,7 @@ public class SessionCache {
     /**
      * Removes all expired sessions from cache.
      */
-    private static void cleanExpiredSessions() {
+    public static void cleanExpiredSessions() {
         sessionCache.entrySet().removeIf(entry -> {
             Session session = entry.getValue();
             if (session.isExpired()) {

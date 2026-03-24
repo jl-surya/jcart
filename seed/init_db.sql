@@ -77,9 +77,13 @@ CREATE TABLE addresses (
     postal_code VARCHAR(20) NOT NULL,
     country VARCHAR(100) NOT NULL,
     phone VARCHAR(20),
+    is_default BOOLEAN DEFAULT FALSE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (customer_id) REFERENCES customers(customer_id)
 );
+
+-- Indexes for performance optimization
+CREATE UNIQUE INDEX idx_addresses_customer_default ON addresses(customer_id) WHERE is_default = TRUE;
 
 -- Products table: Stores product catalog information
 CREATE TABLE products (
@@ -118,13 +122,17 @@ CREATE INDEX idx_products_is_active ON products(is_active);
 CREATE TABLE cart_items (
     customer_id VARCHAR(8) NOT NULL,
     product_id VARCHAR(8) NOT NULL,
-    quantity INT NOT NULL,
+    quantity INT NOT NULL CHECK (quantity BETWEEN 1 AND 50),
     added_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    expires_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP + INTERVAL '30 days',
     PRIMARY KEY (customer_id, product_id),
     FOREIGN KEY (customer_id) REFERENCES customers(customer_id),
     FOREIGN KEY (product_id) REFERENCES products(product_id)
 );
+
+-- Indexes for performance optimization
+CREATE INDEX idx_cart_items_expires ON cart_items(expires_at);
 
 -- Orders table: Stores customer orders
 CREATE TABLE orders (
@@ -275,7 +283,8 @@ INSERT INTO addresses (
     state,
     postal_code,
     country,
-    phone
+    phone,
+    is_default
 )
 SELECT 
     c.customer_id,
@@ -285,7 +294,12 @@ SELECT
     'Tamil Nadu',
     '60000' || (ROW_NUMBER() OVER () % 10),
     'India',
-    c.phone
+    c.phone,
+    CASE 
+        WHEN ROW_NUMBER() OVER (PARTITION BY c.customer_id ORDER BY g.a) = 1 
+        THEN TRUE 
+        ELSE FALSE 
+    END AS is_default
 FROM customers c
 CROSS JOIN generate_series(1, 2) AS g(a);
 

@@ -44,59 +44,71 @@ javac -cp "lib/*" -d WEB-INF/classes src/**/*.java
 ```
 JCart/
 ├── build/
-│   └── deploy.sh                               # Deployment script
+│   └── deploy.sh                                   # Deployment script
 ├── seed/
-│   ├── init_db.sql                             # Database schema & seed data
-│   └── products.csv                            # Initial product data
+│   ├── init_db.sql                                 # Database schema & seed data
+│   └── products.csv                                # Initial product data
 ├── src/
 │   ├── config/
-│   │   └── AsyncExecutor.java                  # Thread pool for async operations
+│   │   ├── AsyncExecutor.java                      # Thread pool for async operations
+│   │   └── TaskExecutor.java                       # Scheduled tasks (session & cart cleanup)
 │   ├── controller/
-│   │   ├── AdminController.java                # Admin endpoints (login, profile, password)
-│   │   ├── AdminManagementController.java      # Admin CRUD operations
-│   │   ├── BaseController.java                 # Base controller with common methods
-│   │   ├── CustomerController.java             # Customer endpoints (register, login, profile)
-│   │   ├── CustomerManagementController.java   # Customer management for admins
-│   │   ├── ProductController.java              # Customer product endpoints (search, view)
-│   │   └── ProductManagementController.java    # Admin product management (CRUD, activate/deactivate)
+│   │   ├── AddressController.java                  # Customer address management
+│   │   ├── AdminController.java                    # Admin endpoints (login, profile, password)
+│   │   ├── AdminManagementController.java          # Admin CRUD operations
+│   │   ├── BaseController.java                     # Base controller with common methods
+│   │   ├── CartController.java                     # Customer cart management
+│   │   ├── CustomerController.java                 # Customer endpoints (register, login, profile)
+│   │   ├── CustomerManagementController.java       # Customer management for admins
+│   │   ├── ProductController.java                  # Customer product endpoints (search, view)
+│   │   └── ProductManagementController.java        # Admin product management (CRUD, activate/deactivate)
 │   ├── dao/
-│   │   ├── AdminDAO.java                       # Admin database operations
-│   │   ├── CustomerDAO.java                    # Customer database operations
-│   │   ├── ProductDAO.java                     # Product database operations with search filters
-│   │   └── SessionDAO.java                     # Session database operations
+│   │   ├── AddressDAO.java                         # Address database operations
+│   │   ├── AdminDAO.java                           # Admin database operations
+│   │   ├── CartDAO.java                            # Cart database operations
+│   │   ├── CustomerDAO.java                        # Customer database operations
+│   │   ├── ProductDAO.java                         # Product database operations with search filters
+│   │   └── SessionDAO.java                         # Session database operations
 │   ├── dto/
-│   │   ├── AdminLoginRequest.java              # Admin login DTO
-│   │   ├── AdminRegisterRequest.java           # Admin registration DTO
-│   │   ├── AdminUpdateRequest.java             # Admin profile update DTO
-│   │   ├── ApiResponse.java                    # Standard API response wrapper
-│   │   ├── CustomerLoginRequest.java           # Customer login DTO
-│   │   ├── CustomerRegisterRequest.java        # Customer registration DTO
-│   │   ├── CustomerUpdateRequest.java          # Customer profile update DTO
-│   │   ├── PasswordChangeRequest.java          # Password change DTO
-│   │   ├── ProductCreateRequest.java           # Product creation DTO
-│   │   ├── ProductSearchRequest.java           # Product search filters DTO
-│   │   └── ProductUpdateRequest.java           # Product update DTO
+│   │   ├── AddressRequest.java                     # Address create/update DTO
+│   │   ├── AdminLoginRequest.java                  # Admin login DTO
+│   │   ├── AdminRegisterRequest.java               # Admin registration DTO
+│   │   ├── AdminUpdateRequest.java                 # Admin profile update DTO
+│   │   ├── ApiResponse.java                        # Standard API response wrapper
+│   │   ├── CartItemRequest.java                    # Add to cart DTO
+│   │   ├── CustomerLoginRequest.java               # Customer login DTO
+│   │   ├── CustomerRegisterRequest.java            # Customer registration DTO
+│   │   ├── CustomerUpdateRequest.java              # Customer profile update DTO
+│   │   ├── PasswordChangeRequest.java              # Password change DTO
+│   │   ├── ProductCreateRequest.java               # Product creation DTO
+│   │   ├── ProductSearchRequest.java               # Product search filters DTO
+│   │   ├── ProductUpdateRequest.java               # Product update DTO
+│   │   └── UpdateCartItemRequest.java              # Update cart quantity DTO
 │   ├── filter/
-│   │   ├── AdminAuthFilter.java                # Authentication filter for admin endpoints
-│   │   └── CustomerAuthFilter.java             # Authentication filter for customer endpoints
+│   │   ├── AdminAuthFilter.java                    # Authentication filter for admin endpoints
+│   │   └── CustomerAuthFilter.java                 # Authentication filter for customer endpoints
 │   ├── model/
-│   │   ├── Admin.java                          # Admin entity with permissions
-│   │   ├── Customer.java                       # Customer entity
-│   │   ├── Product.java                        # Product entity with active status
-│   │   └── Session.java                        # Session entity with rolling expiry
+│   │   ├── Address.java                            # Address entity with default flag
+│   │   ├── Admin.java                              # Admin entity with permissions
+│   │   ├── CartItem.java                           # Cart item entity with expiry
+│   │   ├── Customer.java                           # Customer entity
+│   │   ├── Product.java                            # Product entity with active status
+│   │   └── Session.java                            # Session entity with rolling expiry
 │   ├── service/
-│   │   ├── AdminService.java                   # Admin business logic
-│   │   ├── CustomerService.java                # Customer business logic
-│   │   └── ProductService.java                 # Product business logic with search & filters
+│   │   ├── AddressService.java                     # Address business logic
+│   │   ├── AdminService.java                       # Admin business logic
+│   │   ├── CartService.java                        # Cart business logic
+│   │   ├── CustomerService.java                    # Customer business logic
+│   │   └── ProductService.java                     # Product business logic with search & filters
 │   └── util/
-│       ├── DBUtil.java                         # Database connection utility
-│       ├── JsonUtil.java                       # JSON serialization/deserialization
-│       ├── PasswordUtil.java                   # Password hashing & verification
-│       ├── SessionCache.java                   # In-memory session cache with periodic persistence
-│       └── SessionPersister.java               # Background session persistence
+│       ├── DBUtil.java                             # Database connection utility
+│       ├── JsonUtil.java                           # JSON serialization/deserialization
+│       ├── PasswordUtil.java                       # Password hashing & verification
+│       ├── SessionCache.java                       # In-memory session cache with periodic persistence
+│       └── SessionPersister.java                   # Background session persistence
 ├── WEB-INF/
-│   ├── classes/                                # Compiled .class files
-│   └── web.xml                                 # Servlet configuration
+│   ├── classes/                                    # Compiled .class files
+│   └── web.xml                                     # Servlet configuration
 ├── .gitignore
 └── README.md
 ```
@@ -146,55 +158,84 @@ JCart/
    - Consistent Ordering - Results sorted by `product_id DESC` by default for deterministic pagination
    - Search Performance - Indexed on category, gender, age group, seasonality, location, and product name
 
+5. Shopping Cart & Address Management - cart operations and address book for customers
+   - Cart Management - Add, update quantity, remove items, and clear cart
+   - Cart Expiration - Cart items automatically expire after 30 days
+   - Stock Status Display - Shows stock availability and warnings for low/out of stock items
+   - Quantity Limits - Maximum 50 items per product in cart
+   - Product Validation - Cannot add inactive or unavailable products to cart
+   - Address Management - Create, update, delete, and view shipping addresses
+   - Default Address - Each customer can have one default address, automatically managed
+   - Address Limits - Maximum 10 addresses per customer
+   - Address Validation - Required fields validation (recipient name, address line, city, postal code, country)
+   - Scheduled Cleanup - Background task removes expired cart items hourly
+
 ## Endpoints
 
 ### Authentication
 
-| Endpoint             | Method     | Role     | Permission    | Description                     |
-|----------------------|------------|----------|---------------|---------------------------------|
-| `/customer/register` | POST       | Public   | -             | Create new customer account     |
-| `/customer/login`    | POST       | Public   | -             | Customer login and get session  |
-| `/customer/logout`   | POST       | Customer | Authenticated | Invalidate current session      |
-| `/admin/login`       | POST       | Public   | -             | Admin login and get session     |
-| `/admin/logout`      | POST       | Admin    | Authenticated | Invalidate admin session        |
+| Endpoint             | Method     | Role     | Permission    | Description                    |
+|----------------------|------------|----------|---------------|--------------------------------|
+| `/customer/register` | POST       | Public   | -             | Create new customer account    |
+| `/customer/login`    | POST       | Public   | -             | Customer login and get session |
+| `/customer/logout`   | POST       | Customer | Authenticated | Invalidate current session     |
+| `/admin/login`       | POST       | Public   | -             | Admin login and get session    |
+| `/admin/logout`      | POST       | Admin    | Authenticated | Invalidate admin session       |
 
 ### Customer Profile
 
-| Endpoint             | Method      | Role     | Permission    | Description                    |
-|----------------------|-------------|----------|---------------|--------------------------------|
-| `/customer/profile`  | GET, PATCH  | Customer | Authenticated | Get or update profile          |
-| `/customer/password` | POST        | Customer | Authenticated | Change password                |
-| `/customer/account`  | DELETE      | Customer | Authenticated | Deactivate own account         |
+| Endpoint             | Method     | Role     | Permission    | Description                    |
+|----------------------|------------|----------|---------------|--------------------------------|
+| `/customer/profile`  | GET, PATCH | Customer | Authenticated | Get or update profile          |
+| `/customer/password` | POST       | Customer | Authenticated | Change password                |
+| `/customer/account`  | DELETE     | Customer | Authenticated | Deactivate own account         |
 
 ### Admin Profile
 
-| Endpoint                  | Method     | Role  | Permission    | Description                   |
-|---------------------------|------------|-------|---------------|-------------------------------|
-| `/admin/profile`          | GET, PATCH | Admin | Authenticated | Get or update own profile     |
-| `/admin/profile/password` | POST       | Admin | Authenticated | Change own password           |
+| Endpoint                  | Method     | Role  | Permission    | Description               |
+|---------------------------|------------|-------|---------------|---------------------------|
+| `/admin/profile`          | GET, PATCH | Admin | Authenticated | Get or update own profile |
+| `/admin/profile/password` | POST       | Admin | Authenticated | Change own password       |
 
 ### Admin Management
 
-| Endpoint              | Method                  | Role  | Permission                     | Description                       |
-|-----------------------|-------------------------|-------|--------------------------------|-----------------------------------|
-| `/admin/admins`       | GET, POST               | Admin | `admins:view \ create`          | List all or create admin         |
-| `/admin/admins/{id}`  | GET, PATCH, DELETE      | Admin | `admins:view \ update \ delete` | Get, update, or deactivate admin |
+| Endpoint             | Method             | Role  | Permission                      | Description                      |
+|----------------------|--------------------|-------|---------------------------------|----------------------------------|
+| `/admin/admins`      | GET, POST          | Admin | `admins:view \ create`          | List all or create admin         |
+| `/admin/admins/{id}` | GET, PATCH, DELETE | Admin | `admins:view \ update \ delete` | Get, update, or deactivate admin |
 
 ### Customer Management
 
-| Endpoint                | Method       | Role  | Permission                  | Description                    |
-|-------------------------|--------------|-------|-----------------------------|--------------------------------|
-| `/admin/customers`      | GET          | Admin | `customers:view`            | List all customers             |
-| `/admin/customers/{id}` | GET, DELETE  | Admin | `customers:view \ delete`   | Get or deactivate customer     |
+| Endpoint                | Method      | Role  | Permission                | Description                |
+|-------------------------|-------------|-------|---------------------------|----------------------------|
+| `/admin/customers`      | GET         | Admin | `customers:view`          | List all customers         |
+| `/admin/customers/{id}` | GET, DELETE | Admin | `customers:view \ delete` | Get or deactivate customer |
 
 ### Products
 
-| Endpoint                        | Method             | Role     | Permission                        | Description                            |
-|---------------------------------|--------------------|----------|-----------------------------------|----------------------------------------|
-| `/products/search`              | POST               | Customer | Authenticated                     | Search products with filters           |
-| `/products/{id}`                | GET                | Customer | Authenticated                     | Get single product details             |
-| `/products/filter-options`      | GET                | Customer | Authenticated                     | Get available filter options for UI    |
-| `/admin/products/search`        | POST               | Admin    | `products:view`                   | Search products (active and inactive)  |
-| `/admin/products`               | POST               | Admin    | `products:create`                 | Create new product                     |
-| `/admin/products/{id}`          | GET, PATCH, DELETE | Admin    | `products:view \ update \ delete` | Get, update, or delete product         |
-| `/admin/products/{id}/activate` | PATCH              | Admin    | `products:update`                 | Activate product (set active)          |
+| Endpoint                        | Method             | Role     | Permission                        | Description                           |
+|---------------------------------|--------------------|----------|-----------------------------------|---------------------------------------|
+| `/products/search`              | POST               | Customer | Authenticated                     | Search products with filters          |
+| `/products/{id}`                | GET                | Customer | Authenticated                     | Get single product details            |
+| `/products/filter-options`      | GET                | Customer | Authenticated                     | Get available filter options for UI   |
+| `/admin/products/search`        | POST               | Admin    | `products:view`                   | Search products (active and inactive) |
+| `/admin/products`               | POST               | Admin    | `products:create`                 | Create new product                    |
+| `/admin/products/{id}`          | GET, PATCH, DELETE | Admin    | `products:view \ update \ delete` | Get, update, or delete product        |
+| `/admin/products/{id}/activate` | PATCH              | Admin    | `products:update`                 | Activate product (set active)         |
+
+### Cart
+
+| Endpoint                     | Method          | Role     | Permission    | Description                         |
+|------------------------------|-----------------|----------|---------------|-------------------------------------|
+| `/customer/cart`             | GET, POST       | Customer | Authenticated | Get cart items or add item to cart  |
+| `/customer/cart/{productId}` | PATCH, DELETE   | Customer | Authenticated | Update quantity or remove from cart |
+| `/customer/cart/clear`       | POST            | Customer | Authenticated | Clear entire cart                   |
+
+### Addresses
+
+| Endpoint                                  | Method             | Role     | Permission    | Description                        |
+|-------------------------------------------|--------------------|----------|---------------|------------------------------------|
+| `/customer/addresses`                     | GET, POST          | Customer | Authenticated | List all addresses or create new   |
+| `/customer/addresses/{id}`                | GET, PATCH, DELETE | Customer | Authenticated | Get, update, or delete address     |
+| `/customer/addresses/default`             | GET                | Customer | Authenticated | Get default address                |
+| `/customer/addresses/{id}/default`        | POST               | Customer | Authenticated | Set address as default             |
