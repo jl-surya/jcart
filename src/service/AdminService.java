@@ -27,12 +27,16 @@ public class AdminService {
     private final SessionDAO sessionDAO = new SessionDAO();
     
     // Permission constants for role-based access control
-    public static final String PERM_ADMIN_VIEW = "admin:view";
-    public static final String PERM_ADMIN_CREATE = "admin:create";
-    public static final String PERM_ADMIN_UPDATE = "admin:update";
-    public static final String PERM_ADMIN_DELETE = "admin:delete";
+    public static final String PERM_ADMIN_VIEW = "admins:view";
+    public static final String PERM_ADMIN_CREATE = "admins:create";
+    public static final String PERM_ADMIN_UPDATE = "admins:update";
+    public static final String PERM_ADMIN_DELETE = "admins:delete";
     public static final String PERM_CUSTOMER_VIEW = "customers:view";
     public static final String PERM_CUSTOMER_DELETE = "customers:delete";
+    public static final String PERM_PRODUCT_VIEW = "products:view";
+    public static final String PERM_PRODUCT_CREATE = "products:create";
+    public static final String PERM_PRODUCT_UPDATE = "products:update";
+    public static final String PERM_PRODUCT_DELETE = "products:delete";
 
     /**
      * Registers a new admin account.

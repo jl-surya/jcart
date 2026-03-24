@@ -67,7 +67,7 @@ public class AdminManagementController extends BaseController {
                     
                     if (pathInfo == null || pathInfo.equals("/")) {
                         if (!adminService.hasPermission(currentAdmin, AdminService.PERM_ADMIN_VIEW)) {
-                            sendError(response, "Permission denied. Requires 'admin:view'", 
+                            sendError(response, "Permission denied. Requires 'admins:view'", 
                                      HttpServletResponse.SC_FORBIDDEN);
                             return;
                         }
@@ -88,7 +88,7 @@ public class AdminManagementController extends BaseController {
                         String adminId = pathInfo.substring(1);
                         
                         if (!adminService.hasPermission(currentAdmin, AdminService.PERM_ADMIN_VIEW)) {
-                            sendError(response, "Permission denied. Requires 'admin:view'", 
+                            sendError(response, "Permission denied. Requires 'admins:view'", 
                                      HttpServletResponse.SC_FORBIDDEN);
                             return;
                         }
@@ -196,7 +196,7 @@ public class AdminManagementController extends BaseController {
                     }
                     
                     if (!adminService.hasPermission(currentAdmin, AdminService.PERM_ADMIN_CREATE)) {
-                        sendError(response, "Permission denied. Requires 'admin:create'", 
+                        sendError(response, "Permission denied. Requires 'admins:create'", 
                                  HttpServletResponse.SC_FORBIDDEN);
                         return;
                     }
@@ -272,7 +272,7 @@ public class AdminManagementController extends BaseController {
                     }
                     
                     if (!adminService.hasPermission(currentAdmin, AdminService.PERM_ADMIN_UPDATE)) {
-                        sendError(response, "Permission denied. Requires 'admin:update'", 
+                        sendError(response, "Permission denied. Requires 'admins:update'", 
                                  HttpServletResponse.SC_FORBIDDEN);
                         return;
                     }
@@ -348,7 +348,7 @@ public class AdminManagementController extends BaseController {
                     }
                     
                     if (!adminService.hasPermission(currentAdmin, AdminService.PERM_ADMIN_DELETE)) {
-                        sendError(response, "Permission denied. Requires 'admin:delete'", 
+                        sendError(response, "Permission denied. Requires 'admins:delete'", 
                                  HttpServletResponse.SC_FORBIDDEN);
                         return;
                     }

@@ -96,11 +96,23 @@ CREATE TABLE products (
     shipping_cost NUMERIC(10,2),
     shipping_method VARCHAR(100),
     seasonality VARCHAR(50),
+    is_active BOOLEAN DEFAULT TRUE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 ALTER SEQUENCE product_seq OWNED BY products.product_id;
+
+-- Indexes for performance optimization
+CREATE INDEX idx_products_category ON products(category);
+CREATE INDEX idx_products_price ON products(price);
+CREATE INDEX idx_products_gender ON products(gender);
+CREATE INDEX idx_products_age_group ON products(age_group);
+CREATE INDEX idx_products_seasonality ON products(seasonality);
+CREATE INDEX idx_products_location ON products(location);
+CREATE INDEX idx_products_stock_level ON products(stock_level);
+CREATE INDEX idx_products_name ON products(product_name);
+CREATE INDEX idx_products_is_active ON products(is_active);
 
 -- Cart items table: Stores items in customer shopping cart
 CREATE TABLE cart_items (
@@ -210,7 +222,7 @@ VALUES (
     'superadmin',
     'superadmin@jcart.com',
     'tZzybcrw6p/o4evfqqHe07FdGWExcnAdw87rVaa0mtnEJBbZclS17p7f3mlJA0N/',
-    '9999999999',
+    '9999999991',
     'SUPER_ADMIN',
     ARRAY['*'],
     TRUE,
@@ -286,13 +298,39 @@ SELECT setval(
     )
 );
 
+-- Insert admin manager admin
+INSERT INTO admins (username, email, password, phone, role, permissions, is_active, is_super_admin)
+VALUES (
+    'admin_manager',
+    'admin_manager@jcart.com',
+    'tZzybcrw6p/o4evfqqHe07FdGWExcnAdw87rVaa0mtnEJBbZclS17p7f3mlJA0N/',
+    '9999999992',
+    'ADMIN_MANAGER',
+    ARRAY['admins:view', 'admins:create', 'admins:update', 'admins:delete'],
+    TRUE,
+    FALSE
+) ON CONFLICT (username) DO NOTHING;
+
+-- Insert customer manager admin
+INSERT INTO admins (username, email, password, phone, role, permissions, is_active, is_super_admin)
+VALUES (
+    'customer_manager',
+    'customer_manager@jcart.com',
+    'tZzybcrw6p/o4evfqqHe07FdGWExcnAdw87rVaa0mtnEJBbZclS17p7f3mlJA0N/',
+    '9999999993',
+    'CUSTOMER_MANAGER',
+    ARRAY['customers:view', 'customers:delete'],
+    TRUE,
+    FALSE
+) ON CONFLICT (username) DO NOTHING;
+
 -- Insert product manager admin
 INSERT INTO admins (username, email, password, phone, role, permissions, is_active, is_super_admin)
 VALUES (
     'product_manager',
     'product_manager@jcart.com',
     'tZzybcrw6p/o4evfqqHe07FdGWExcnAdw87rVaa0mtnEJBbZclS17p7f3mlJA0N/',
-    '7777777777',
+    '9999999994',
     'PRODUCT_MANAGER',
     ARRAY['products:view', 'products:create', 'products:update', 'products:delete', 'orders:view'],
     TRUE,
@@ -305,7 +343,7 @@ VALUES (
     'order_manager',
     'order_manager@jcart.com',
     'tZzybcrw6p/o4evfqqHe07FdGWExcnAdw87rVaa0mtnEJBbZclS17p7f3mlJA0N/',
-    '6666666666',
+    '9999999995',
     'ORDER_MANAGER',
     ARRAY['orders:view', 'orders:update', 'orders:process', 'customers:view'],
     TRUE,
@@ -318,7 +356,7 @@ VALUES (
     'viewer',
     'viewer@jcart.com',
     'tZzybcrw6p/o4evfqqHe07FdGWExcnAdw87rVaa0mtnEJBbZclS17p7f3mlJA0N/',
-    '5555555555',
+    '9999999996',
     'VIEWER',
     ARRAY['products:view', 'orders:view', 'customers:view'],
     TRUE,
