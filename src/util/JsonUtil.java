@@ -5,6 +5,7 @@ import java.sql.Timestamp;
 import java.text.SimpleDateFormat;
 import java.util.Collection;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.Map;
 
 /**
@@ -18,6 +19,7 @@ import java.util.Map;
  * - Date/Timestamp formatting
  * - JSON string escaping
  * - JSON value extraction for simple parsing
+ * - JSON to Map conversion for nested object handling
  */
 public class JsonUtil {
     
@@ -183,7 +185,7 @@ public class JsonUtil {
     }
 
     /**
-     * Extracts value for a key from JSON string using simple parsing.
+     * Extracts string value for a key from JSON string using simple parsing.
      * Supports quoted string values and unquoted numeric/boolean values.
      *
      * @param json the JSON string
@@ -256,5 +258,74 @@ public class JsonUtil {
         if (endBracket == -1) return null;
         
         return json.substring(startBracket, endBracket + 1);
+    }
+
+    /**
+     * Converts a JSON string to a Map of string key-value pairs.
+     * Supports nested objects (stored as JSON string) and primitive values.
+     *
+     * @param json the JSON string
+     * @return map of key-value pairs
+     */
+    public static Map<String, String> jsonToMap(String json) {
+        Map<String, String> map = new HashMap<>();
+        if (json == null || json.isEmpty()) return map;
+        
+        int length = json.length();
+        int i = 0;
+        
+        while (i < length) {
+            
+            while (i < length && Character.isWhitespace(json.charAt(i))) i++;
+            if (i >= length) break;
+            
+            if (json.charAt(i) != '"') {
+                i++;
+                continue;
+            }
+            
+            int keyStart = i + 1;
+            int keyEnd = json.indexOf('"', keyStart);
+            if (keyEnd == -1) break;
+            String key = json.substring(keyStart, keyEnd);
+            
+            i = keyEnd + 1;
+            
+            while (i < length && (Character.isWhitespace(json.charAt(i)) || json.charAt(i) == ':')) i++;
+            if (i >= length) break;
+            
+            String value = null;
+            if (json.charAt(i) == '"') {
+                int valueStart = i + 1;
+                int valueEnd = json.indexOf('"', valueStart);
+                if (valueEnd != -1) {
+                    value = json.substring(valueStart, valueEnd);
+                    i = valueEnd + 1;
+                }
+            } else if (json.charAt(i) == '{') {
+                int braceCount = 1;
+                int valueStart = i;
+                i++;
+                while (i < length && braceCount > 0) {
+                    char c = json.charAt(i);
+                    if (c == '{') braceCount++;
+                    else if (c == '}') braceCount--;
+                    i++;
+                }
+                value = json.substring(valueStart, i);
+            } else {
+                int valueStart = i;
+                while (i < length && json.charAt(i) != ',' && json.charAt(i) != '}') {
+                    i++;
+                }
+                value = json.substring(valueStart, i).trim();
+            }
+            
+            map.put(key, value);
+            
+            while (i < length && (json.charAt(i) == ',' || Character.isWhitespace(json.charAt(i)))) i++;
+        }
+        
+        return map;
     }
 }

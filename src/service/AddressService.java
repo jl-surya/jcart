@@ -2,6 +2,7 @@ package service;
 
 import dao.AddressDAO;
 import dto.AddressRequest;
+import dto.OrderRequest;
 import java.util.List;
 import model.Address;
 
@@ -22,6 +23,60 @@ public class AddressService {
     
     private final AddressDAO addressDAO = new AddressDAO();
     private static final int MAX_ADDRESSES = 10;
+
+    /**
+     * Validates address request fields.
+     *
+     * @param request the address request to validate
+     * @throws IllegalArgumentException if validation fails
+     */
+    public void validateAddress(AddressRequest request) {
+        if (request.getRecipientName() == null || request.getRecipientName().trim().isEmpty()) {
+            throw new IllegalArgumentException("Recipient name is required");
+        }
+        if (request.getAddressLine() == null || request.getAddressLine().trim().isEmpty()) {
+            throw new IllegalArgumentException("Address line is required");
+        }
+        if (request.getCity() == null || request.getCity().trim().isEmpty()) {
+            throw new IllegalArgumentException("City is required");
+        }
+        if (request.getPostalCode() == null || request.getPostalCode().trim().isEmpty()) {
+            throw new IllegalArgumentException("Postal code is required");
+        }
+        if (request.getCountry() == null || request.getCountry().trim().isEmpty()) {
+            throw new IllegalArgumentException("Country is required");
+        }
+        if (request.getPhone() == null || request.getPhone().trim().isEmpty()) {
+            throw new IllegalArgumentException("Phone number is required");
+        }
+    }
+    
+    /**
+     * Validates one-time address fields for order checkout.
+     *
+     * @param oneTime the one-time address to validate
+     * @throws IllegalArgumentException if validation fails
+     */
+    public void validateOneTimeAddress(OrderRequest.OneTimeAddress oneTime) {
+        if (oneTime.getRecipientName() == null || oneTime.getRecipientName().trim().isEmpty()) {
+            throw new IllegalArgumentException("Recipient name is required");
+        }
+        if (oneTime.getAddressLine() == null || oneTime.getAddressLine().trim().isEmpty()) {
+            throw new IllegalArgumentException("Address line is required");
+        }
+        if (oneTime.getCity() == null || oneTime.getCity().trim().isEmpty()) {
+            throw new IllegalArgumentException("City is required");
+        }
+        if (oneTime.getPostalCode() == null || oneTime.getPostalCode().trim().isEmpty()) {
+            throw new IllegalArgumentException("Postal code is required");
+        }
+        if (oneTime.getCountry() == null || oneTime.getCountry().trim().isEmpty()) {
+            throw new IllegalArgumentException("Country is required");
+        }
+        if (oneTime.getPhone() == null || oneTime.getPhone().trim().isEmpty()) {
+            throw new IllegalArgumentException("Phone number is required");
+        }
+    }
     
     /**
      * Creates a new address for a customer.
@@ -33,6 +88,8 @@ public class AddressService {
      * @throws Exception if address limit exceeded or database error occurs
      */
     public Address createAddress(String customerId, AddressRequest request) throws Exception {
+        validateAddress(request);
+        
         int currentCount = addressDAO.getCountByCustomer(customerId);
         if (currentCount >= MAX_ADDRESSES) {
             throw new IllegalArgumentException("Maximum " + MAX_ADDRESSES + " addresses allowed per customer");

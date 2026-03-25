@@ -37,6 +37,10 @@ public class AdminService {
     public static final String PERM_PRODUCT_CREATE = "products:create";
     public static final String PERM_PRODUCT_UPDATE = "products:update";
     public static final String PERM_PRODUCT_DELETE = "products:delete";
+    public static final String PERM_ORDER_VIEW = "orders:view";
+    public static final String PERM_ORDER_UPDATE = "orders:update";
+    public static final String PERM_TRANSACTION_VIEW = "transactions:view";
+    public static final String PERM_TRANSACTION_UPDATE = "transactions:update";
 
     /**
      * Registers a new admin account.

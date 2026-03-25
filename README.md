@@ -51,24 +51,31 @@ JCart/
 ├── src/
 │   ├── config/
 │   │   ├── AsyncExecutor.java                      # Thread pool for async operations
-│   │   └── TaskExecutor.java                       # Scheduled tasks (session & cart cleanup)
+│   │   └── TaskExecutor.java                       # Scheduled tasks (session, cart, order cleanup)
 │   ├── controller/
 │   │   ├── AddressController.java                  # Customer address management
 │   │   ├── AdminController.java                    # Admin endpoints (login, profile, password)
-│   │   ├── AdminManagementController.java          # Admin CRUD operations
+│   │   ├── AdminManagementController.java          # Admin CRUD operations for admins
+│   │   ├── OrderManagementController.java          # Order management for admins
+│   │   ├── TransactionManagementController.java    # Transaction management (payments & refunds) for admins
 │   │   ├── BaseController.java                     # Base controller with common methods
 │   │   ├── CartController.java                     # Customer cart management
 │   │   ├── CustomerController.java                 # Customer endpoints (register, login, profile)
 │   │   ├── CustomerManagementController.java       # Customer management for admins
+│   │   ├── OrderController.java                    # Customer order endpoints
 │   │   ├── ProductController.java                  # Customer product endpoints (search, view)
-│   │   └── ProductManagementController.java        # Admin product management (CRUD, activate/deactivate)
+│   │   ├── ProductManagementController.java        # Product management for admins
+│   │   └── TransactionController.java              # Customer transaction viewing
 │   ├── dao/
 │   │   ├── AddressDAO.java                         # Address database operations
 │   │   ├── AdminDAO.java                           # Admin database operations
 │   │   ├── CartDAO.java                            # Cart database operations
 │   │   ├── CustomerDAO.java                        # Customer database operations
+│   │   ├── OrderDAO.java                           # Order database operations with pagination
+│   │   ├── OrderItemDAO.java                       # Order items database operations
 │   │   ├── ProductDAO.java                         # Product database operations with search filters
-│   │   └── SessionDAO.java                         # Session database operations
+│   │   ├── SessionDAO.java                         # Session database operations
+│   │   └── TransactionDAO.java                     # Transaction database operations
 │   ├── dto/
 │   │   ├── AddressRequest.java                     # Address create/update DTO
 │   │   ├── AdminLoginRequest.java                  # Admin login DTO
@@ -79,11 +86,19 @@ JCart/
 │   │   ├── CustomerLoginRequest.java               # Customer login DTO
 │   │   ├── CustomerRegisterRequest.java            # Customer registration DTO
 │   │   ├── CustomerUpdateRequest.java              # Customer profile update DTO
+│   │   ├── DirectOrderRequest.java                 # Direct buy now order DTO
+│   │   ├── OrderFilterRequest.java                 # Order list filters DTO
+│   │   ├── OrderRequest.java                       # Create order from cart DTO
+│   │   ├── OrderResponse.java                      # Order details response with invoice
+│   │   ├── OrderStatusUpdateRequest.java           # Order status update DTO
 │   │   ├── PasswordChangeRequest.java              # Password change DTO
 │   │   ├── ProductCreateRequest.java               # Product creation DTO
 │   │   ├── ProductSearchRequest.java               # Product search filters DTO
 │   │   ├── ProductUpdateRequest.java               # Product update DTO
-│   │   └── UpdateCartItemRequest.java              # Update cart quantity DTO
+│   │   ├── TransactionActionRequest.java           # Refund approve/reject DTO
+│   │   ├── TransactionFilterRequest.java           # Transaction list filters DTO
+│   │   ├── UpdateCartItemRequest.java              # Update cart quantity DTO
+│   │   └── UpdateOrderAddressRequest.java          # Update order address DTO
 │   ├── filter/
 │   │   ├── AdminAuthFilter.java                    # Authentication filter for admin endpoints
 │   │   └── CustomerAuthFilter.java                 # Authentication filter for customer endpoints
@@ -92,14 +107,20 @@ JCart/
 │   │   ├── Admin.java                              # Admin entity with permissions
 │   │   ├── CartItem.java                           # Cart item entity with expiry
 │   │   ├── Customer.java                           # Customer entity
+│   │   ├── Order.java                              # Order entity with status and payment tracking
+│   │   ├── OrderItem.java                          # Order item entity
 │   │   ├── Product.java                            # Product entity with active status
-│   │   └── Session.java                            # Session entity with rolling expiry
+│   │   ├── Session.java                            # Session entity with rolling expiry
+│   │   └── Transaction.java                        # Transaction entity (payment & refund)
 │   ├── service/
 │   │   ├── AddressService.java                     # Address business logic
 │   │   ├── AdminService.java                       # Admin business logic
 │   │   ├── CartService.java                        # Cart business logic
 │   │   ├── CustomerService.java                    # Customer business logic
-│   │   └── ProductService.java                     # Product business logic with search & filters
+│   │   ├── OrderService.java                       # Order business logic (atomic operations)
+│   │   ├── PaymentGateway.java                     # Mock payment gateway
+│   │   ├── ProductService.java                     # Product business logic with search & filters
+│   │   └── TransactionService.java                 # Transaction & refund business logic
 │   └── util/
 │       ├── DBUtil.java                             # Database connection utility
 │       ├── JsonUtil.java                           # JSON serialization/deserialization
@@ -140,7 +161,7 @@ JCart/
    - Admin Profile Management - View and update own profile
    - Admin Password Change - Change password with old password verification
    - Admin CRUD - List, get, create, update, and deactivate admins
-   - Role-Based Permissions - Array-based permission system (`admins:view`, `admins:create`, `admins:update`, `admins:delete`, `customers:view`, `customers:delete`, `products:view`, `products:create`, `products:update`, `products:delete`)
+   - Role-Based Permissions - Array-based permission system (`admins:view`, `admins:create`, `admins:update`, `admins:delete`, `customers:view` `customers:delete`, `products:view`, `products:create`, `products:update`, `products:delete`, `orders:view`, `orders:update`, `transactions:view`, `transactions:update`)
    - Superadmin Protection - Superadmin cannot be deactivated or modified
    - Customer Management - Admins can list, get, and deactivate customers
    - Auth Filter - Protects all `/admin/*` endpoints with separate filter
@@ -169,6 +190,22 @@ JCart/
    - Address Limits - Maximum 10 addresses per customer
    - Address Validation - Required fields validation (recipient name, address line, city, postal code, country)
    - Scheduled Cleanup - Background task removes expired cart items hourly
+
+6. Order & Transaction Management - order creation, payment processing, and transaction tracking
+   - Order Creation - Create orders from cart or direct buy now with address selection (saved or one-time)
+   - Payment Processing - Mock payment gateway with transaction audit trail (INITIATED → COMPLETED/FAILED)
+   - Stock Management - Stock deducted at order creation, restored on cancellation or expiry
+   - Payment Deadline - 5-minute window for payment completion with automatic expiry cleanup
+   - Order Status Flow - PENDING → PROCESSING → SHIPPED → DELIVERED with validation rules
+   - Order Cancellation - Customer can cancel PROCESSING orders with automatic refund request
+   - Address Update - Customers can modify shipping address for PENDING/PROCESSING orders
+   - Admin Order Management - View all orders, update status (SHIPPED/DELIVERED) with permission checks
+   - Refund Management - Admin can approve or reject refund requests with transaction tracking
+   - Transaction History - Complete audit trail for payments and refunds with pagination and filters
+   - Invoice Generation - Auto-generated invoice numbers for each order
+   - Scheduled Cleanup - Background task cancels expired orders and restores stock every minute
+   - Status Validation - Enforced order and payment status transitions with proper error messages
+   - Filters & Pagination - Both orders and transactions support filtering by status, date, amount, and pagination
 
 ## Endpoints
 
@@ -225,17 +262,41 @@ JCart/
 
 ### Cart
 
-| Endpoint                     | Method          | Role     | Permission    | Description                         |
-|------------------------------|-----------------|----------|---------------|-------------------------------------|
-| `/customer/cart`             | GET, POST       | Customer | Authenticated | Get cart items or add item to cart  |
-| `/customer/cart/{productId}` | PATCH, DELETE   | Customer | Authenticated | Update quantity or remove from cart |
-| `/customer/cart/clear`       | POST            | Customer | Authenticated | Clear entire cart                   |
+| Endpoint                     | Method        | Role     | Permission    | Description                         |
+|------------------------------|---------------|----------|---------------|-------------------------------------|
+| `/customer/cart`             | GET, POST     | Customer | Authenticated | Get cart items or add item to cart  |
+| `/customer/cart/{productId}` | PATCH, DELETE | Customer | Authenticated | Update quantity or remove from cart |
+| `/customer/cart/clear`       | POST          | Customer | Authenticated | Clear entire cart                   |
 
 ### Addresses
 
-| Endpoint                                  | Method             | Role     | Permission    | Description                        |
-|-------------------------------------------|--------------------|----------|---------------|------------------------------------|
-| `/customer/addresses`                     | GET, POST          | Customer | Authenticated | List all addresses or create new   |
-| `/customer/addresses/{id}`                | GET, PATCH, DELETE | Customer | Authenticated | Get, update, or delete address     |
-| `/customer/addresses/default`             | GET                | Customer | Authenticated | Get default address                |
-| `/customer/addresses/{id}/default`        | POST               | Customer | Authenticated | Set address as default             |
+| Endpoint                           | Method             | Role     | Permission    | Description                      |
+|------------------------------------|--------------------|----------|---------------|----------------------------------|
+| `/customer/addresses`              | GET, POST          | Customer | Authenticated | List all addresses or create new |
+| `/customer/addresses/{id}`         | GET, PATCH, DELETE | Customer | Authenticated | Get, update, or delete address   |
+| `/customer/addresses/default`      | GET                | Customer | Authenticated | Get default address              |
+| `/customer/addresses/{id}/default` | POST               | Customer | Authenticated | Set address as default           |
+
+### Orders
+
+| Endpoint                             | Method      | Role     | Permission      | Description                              |
+|--------------------------------------|-------------|----------|-----------------|------------------------------------------|
+| `/customer/orders/cart`              | POST        | Customer | Authenticated   | Create order from cart                   |
+| `/customer/orders/direct`            | POST        | Customer | Authenticated   | Create direct order (buy now)            |
+| `/customer/orders`                   | GET         | Customer | Authenticated   | List customer orders (paginated, filters)|
+| `/customer/orders/{orderId}`         | GET         | Customer | Authenticated   | Get order details with invoice           |
+| `/customer/orders/{orderId}/cancel`  | POST        | Customer | Authenticated   | Cancel order (PROCESSING only)           |
+| `/customer/orders/{orderId}/address` | PATCH       | Customer | Authenticated   | Update shipping address                  |
+| `/admin/orders`                      | GET         | Admin    | `orders:view`   | List all orders (paginated, filters)     |
+| `/admin/orders/{orderId}`            | GET         | Admin    | `orders:view`   | Get order details                        |
+| `/admin/orders/{orderId}/status`     | PATCH       | Admin    | `orders:update` | Update order status (SHIPPED/DELIVERED)  |
+
+### Transactions
+
+| Endpoint                                  | Method | Role     | Permission            | Description                               |
+|-------------------------------------------|--------|----------|-----------------------|-------------------------------------------|
+| `/customer/transactions`                  | GET    | Customer | Authenticated         | List customer transactions (paginated)    |
+| `/customer/transactions/{id}`             | GET    | Customer | Authenticated         | Get transaction details                   |
+| `/admin/transactions`                     | GET    | Admin    | `transactions:view`   | List all transactions (paginated, filters)|
+| `/admin/transactions/{id}`                | GET    | Admin    | `transactions:view`   | Get transaction details                   |
+| `/admin/transactions/{id}/action`         | POST   | Admin    | `transactions:update` | Approve or reject refund request          |

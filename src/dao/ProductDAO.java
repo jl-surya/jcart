@@ -538,4 +538,63 @@ public class ProductDAO {
         product.setUpdatedAt(rs.getTimestamp("updated_at"));
         return product;
     }
+    
+    /**
+     * Deducts stock for a product after order placement.
+     *
+     * @param productId the product ID
+     * @param quantity the quantity to deduct
+     * @throws Exception if insufficient stock or product inactive
+     */
+    public void deductStock(String productId, int quantity) throws Exception {
+        String sql = "UPDATE products SET stock_level = stock_level - ?, updated_at = CURRENT_TIMESTAMP " +
+                    "WHERE product_id = ? AND stock_level >= ? AND is_active = TRUE";
+        
+        try (Connection conn = DBUtil.getConnection();
+            PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setInt(1, quantity);
+            ps.setString(2, productId);
+            ps.setInt(3, quantity);
+            int updated = ps.executeUpdate();
+            if (updated == 0) {
+                throw new IllegalArgumentException("Insufficient stock or product inactive");
+            }
+        }
+    }
+
+    /**
+     * Restores stock for a product when order is cancelled.
+     *
+     * @param productId the product ID
+     * @param quantity the quantity to restore
+     * @throws Exception if database operation fails
+     */
+    public void restoreStock(String productId, int quantity) throws Exception {
+        String sql = "UPDATE products SET stock_level = stock_level + ?, updated_at = CURRENT_TIMESTAMP " +
+                    "WHERE product_id = ?";
+        
+        try (Connection conn = DBUtil.getConnection();
+            PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setInt(1, quantity);
+            ps.setString(2, productId);
+            ps.executeUpdate();
+        }
+    }
+
+    /**
+     * Restores stock for all items in a cancelled order.
+     *
+     * @param orderId the order ID
+     * @throws Exception if database operation fails
+     */
+    public void restoreStockForOrder(Long orderId) throws Exception {
+        String sql = "UPDATE products p SET stock_level = stock_level + oi.quantity " +
+                    "FROM order_items oi WHERE oi.order_id = ? AND p.product_id = oi.product_id";
+        
+        try (Connection conn = DBUtil.getConnection();
+            PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setLong(1, orderId);
+            ps.executeUpdate();
+        }
+    }
 }

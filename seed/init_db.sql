@@ -138,8 +138,8 @@ CREATE INDEX idx_cart_items_expires ON cart_items(expires_at);
 CREATE TABLE orders (
     order_id BIGSERIAL PRIMARY KEY,
     customer_id VARCHAR(8) NOT NULL,
-    order_status VARCHAR(30) NOT NULL,
-    payment_status VARCHAR(30) NOT NULL,
+    order_status VARCHAR(30) NOT NULL CHECK (order_status IN ('PENDING', 'PROCESSING', 'SHIPPED', 'DELIVERED', 'CANCELLED')),
+    payment_status VARCHAR(30) NOT NULL CHECK (payment_status IN ('PENDING', 'PAID', 'FAILED', 'REFUNDED')),
     total_amount NUMERIC(12,2) NOT NULL,
     shipping_name VARCHAR(100) NOT NULL,
     shipping_address_line VARCHAR(200) NOT NULL,
@@ -147,12 +147,19 @@ CREATE TABLE orders (
     shipping_state VARCHAR(100),
     shipping_postal_code VARCHAR(20) NOT NULL,
     shipping_country VARCHAR(100) NOT NULL,
+    invoice_number VARCHAR(50) UNIQUE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP,
+    cancelled_at TIMESTAMP,
+    cancelled_by VARCHAR(8),
+    payment_deadline TIMESTAMP DEFAULT (CURRENT_TIMESTAMP + INTERVAL '5 minutes'),
     FOREIGN KEY (customer_id) REFERENCES customers(customer_id)
 );
 
 CREATE INDEX idx_orders_customer ON orders(customer_id);
+CREATE INDEX idx_orders_customer_status ON orders(customer_id, order_status);
+CREATE INDEX idx_orders_created_at ON orders(created_at);
+CREATE INDEX idx_orders_payment_deadline ON orders(payment_deadline);
 
 -- Order items table: Stores individual items within an order
 CREATE TABLE order_items (
@@ -175,19 +182,25 @@ CREATE INDEX idx_order_items_order ON order_items(order_id);
 CREATE TABLE transactions (
     transaction_id BIGSERIAL PRIMARY KEY,
     order_id BIGINT NOT NULL,
-    transaction_type VARCHAR(20) NOT NULL,
+    transaction_type VARCHAR(20) NOT NULL CHECK (transaction_type IN ('PAYMENT', 'REFUND')),
     transaction_method VARCHAR(50) NOT NULL,
-    transaction_status VARCHAR(30) NOT NULL,
+    transaction_status VARCHAR(30) NOT NULL CHECK (transaction_status IN ('INITIATED', 'PENDING', 'COMPLETED', 'FAILED', 'REFUNDED', 'REJECTED')),
     amount NUMERIC(12,2) NOT NULL,
     transaction_reference VARCHAR(200) UNIQUE,
+    refund_reason TEXT,
     processed_by_type TEXT,
     processed_by VARCHAR(8),
     processed_at TIMESTAMP,
+    approved_by VARCHAR(8),
+    approved_at TIMESTAMP,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (order_id) REFERENCES orders(order_id)
 );
 
 CREATE INDEX idx_transactions_order ON transactions(order_id);
+CREATE INDEX idx_transactions_order_type ON transactions(order_id, transaction_type);
+CREATE INDEX idx_transactions_status ON transactions(transaction_status);
+CREATE INDEX idx_transactions_reference ON transactions(transaction_reference);
 
 -- Trigger function to protect super admin accounts from deletion or modification
 CREATE OR REPLACE FUNCTION protect_super_admin()
@@ -311,8 +324,7 @@ SELECT setval(
         1
     )
 );
-
--- Insert admin manager admin
+-- ADMIN MANAGER (Full admin control)
 INSERT INTO admins (username, email, password, phone, role, permissions, is_active, is_super_admin)
 VALUES (
     'admin_manager',
@@ -325,7 +337,8 @@ VALUES (
     FALSE
 ) ON CONFLICT (username) DO NOTHING;
 
--- Insert customer manager admin
+
+-- CUSTOMER MANAGER
 INSERT INTO admins (username, email, password, phone, role, permissions, is_active, is_super_admin)
 VALUES (
     'customer_manager',
@@ -338,7 +351,8 @@ VALUES (
     FALSE
 ) ON CONFLICT (username) DO NOTHING;
 
--- Insert product manager admin
+
+-- PRODUCT MANAGER
 INSERT INTO admins (username, email, password, phone, role, permissions, is_active, is_super_admin)
 VALUES (
     'product_manager',
@@ -346,12 +360,13 @@ VALUES (
     'tZzybcrw6p/o4evfqqHe07FdGWExcnAdw87rVaa0mtnEJBbZclS17p7f3mlJA0N/',
     '9999999994',
     'PRODUCT_MANAGER',
-    ARRAY['products:view', 'products:create', 'products:update', 'products:delete', 'orders:view'],
+    ARRAY['products:view', 'products:create', 'products:update', 'products:delete'],
     TRUE,
     FALSE
 ) ON CONFLICT (username) DO NOTHING;
 
--- Insert order manager admin
+
+-- ORDER MANAGER
 INSERT INTO admins (username, email, password, phone, role, permissions, is_active, is_super_admin)
 VALUES (
     'order_manager',
@@ -359,20 +374,35 @@ VALUES (
     'tZzybcrw6p/o4evfqqHe07FdGWExcnAdw87rVaa0mtnEJBbZclS17p7f3mlJA0N/',
     '9999999995',
     'ORDER_MANAGER',
-    ARRAY['orders:view', 'orders:update', 'orders:process', 'customers:view'],
+    ARRAY['orders:view', 'orders:update'],
     TRUE,
     FALSE
 ) ON CONFLICT (username) DO NOTHING;
 
--- Insert viewer admin
+
+-- TRANSACTION MANAGER
+INSERT INTO admins (username, email, password, phone, role, permissions, is_active, is_super_admin)
+VALUES (
+    'transaction_manager',
+    'transaction_manager@jcart.com',
+    'tZzybcrw6p/o4evfqqHe07FdGWExcnAdw87rVaa0mtnEJBbZclS17p7f3mlJA0N/',
+    '9999999996',
+    'TRANSACTION_MANAGER',
+    ARRAY['transactions:view', 'transactions:update'],
+    TRUE,
+    FALSE
+) ON CONFLICT (username) DO NOTHING;
+
+
+-- VIEWER (Read-only across modules)
 INSERT INTO admins (username, email, password, phone, role, permissions, is_active, is_super_admin)
 VALUES (
     'viewer',
     'viewer@jcart.com',
     'tZzybcrw6p/o4evfqqHe07FdGWExcnAdw87rVaa0mtnEJBbZclS17p7f3mlJA0N/',
-    '9999999996',
+    '9999999997',
     'VIEWER',
-    ARRAY['products:view', 'orders:view', 'customers:view'],
+    ARRAY['admins:view', 'customers:view', 'products:view', 'orders:view', 'transactions:view'],
     TRUE,
     FALSE
 ) ON CONFLICT (username) DO NOTHING;

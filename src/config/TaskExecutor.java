@@ -4,6 +4,7 @@ import dao.CartDAO;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import service.OrderService;
 import util.SessionCache;
 import util.SessionPersister;
 
@@ -14,18 +15,21 @@ import util.SessionPersister;
  * - Session cleanup to remove expired sessions from cache
  * - Session persistence to sync dirty sessions with database
  * - Cart cleanup to remove expired cart items
+ * - Expired order cleanup to cancel pending orders beyond expiry
  * - Graceful shutdown of scheduled tasks
  */
 public class TaskExecutor {
     
-    private static final ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(3);
+    private static final ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(4);
     private static final SessionPersister sessionPersister = new SessionPersister();
     private static final CartDAO cartDAO = new CartDAO();
+    private static final OrderService orderService = new OrderService();
     
     static {
         scheduleSessionCleanup();
         scheduleSessionPersistence();
         scheduleCartCleanup();
+        // scheduleExpiredOrderCleanup();
     }
     
     /**
@@ -68,6 +72,20 @@ public class TaskExecutor {
                 e.printStackTrace();
             }
         }, 1, 1, TimeUnit.HOURS);
+    }
+
+    /**
+     * Schedules expired order cleanup task to run every minute.
+     * Cancels orders that are pending and have exceeded expiry time.
+     */
+    private static void scheduleExpiredOrderCleanup() {
+        scheduler.scheduleAtFixedRate(() -> {
+            try {
+                orderService.cancelExpiredOrders();
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        }, 1, 1, TimeUnit.MINUTES);
     }
     
     /**

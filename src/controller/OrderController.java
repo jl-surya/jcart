@@ -1,45 +1,46 @@
 package controller;
 
 import config.AsyncExecutor;
-import dto.AddressRequest;
+import dto.OrderFilterRequest;
+import dto.OrderRequest;
+import dto.DirectOrderRequest;
+import dto.UpdateOrderAddressRequest;
+import dto.OrderResponse;
 import jakarta.servlet.AsyncContext;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.annotation.WebServlet;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import model.Address;
-import service.AddressService;
+import model.Customer;
 import service.CustomerService;
+import service.OrderService;
 import util.JsonUtil;
 
 import java.io.BufferedReader;
 import java.io.IOException;
-import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.concurrent.RejectedExecutionException;
 
 /**
- * AddressController handles customer address management endpoints.
+ * OrderController handles customer order management endpoints.
  * 
  * Includes:
- * - List all addresses for a customer
- * - Get specific address by ID
- * - Get default address
- * - Create new address
- * - Update existing address
- * - Delete address
- * - Set address as default
+ * - View order history with filters
+ * - View single order details
+ * - Create order from cart
+ * - Create direct order (single product)
+ * - Update shipping address for pending orders
+ * - Cancel pending orders
  */
-@WebServlet(value = "/customer/addresses/*", asyncSupported = true)
-public class AddressController extends BaseController {
+@WebServlet(value = "/customer/orders/*", asyncSupported = true)
+public class OrderController extends BaseController {
     
-    private final AddressService addressService = new AddressService();
+    private final OrderService orderService = new OrderService();
     private final CustomerService customerService = new CustomerService();
 
     /**
-     * Handles GET requests for address endpoints.
-     * Supports listing all addresses, getting default address, or specific address by ID.
+     * Handles GET requests for customer order endpoints.
+     * Supports listing orders or retrieving a single order by ID.
      *
      * @param req the HTTP request object
      * @param resp the HTTP response object
@@ -53,20 +54,18 @@ public class AddressController extends BaseController {
         String pathInfo = req.getPathInfo();
         
         if (pathInfo == null || pathInfo.equals("/")) {
-            handleGetAddresses(req, resp);
-        } else if ("/default".equals(pathInfo)) {
-            handleGetDefaultAddress(req, resp);
+            handleGetOrders(req, resp);
         } else if (pathInfo.matches("/\\d+")) {
-            Long addressId = Long.parseLong(pathInfo.substring(1));
-            handleGetAddress(req, resp, addressId);
+            Long orderId = Long.parseLong(pathInfo.substring(1));
+            handleGetOrder(req, resp, orderId);
         } else {
             sendError(resp, "Endpoint not found", HttpServletResponse.SC_NOT_FOUND);
         }
     }
 
     /**
-     * Handles POST requests for address endpoints.
-     * Supports create, update, delete, and set default operations.
+     * Handles POST requests for customer order endpoints.
+     * Supports create from cart, direct order, update address, and cancel order.
      *
      * @param req the HTTP request object
      * @param resp the HTTP response object
@@ -90,28 +89,27 @@ public class AddressController extends BaseController {
         
         String method = JsonUtil.getString(jsonBody, "_method");
         
-        if (pathInfo == null || pathInfo.equals("/")) {
-            handleCreateAddress(req, resp, jsonBody);
+        if ("/cart".equals(pathInfo)) {
+            handleCreateFromCart(req, resp, jsonBody);
             return;
         }
         
-        if (pathInfo.matches("/\\d+")) {
-            Long addressId = Long.parseLong(pathInfo.substring(1));
-            
-            if ("PATCH".equalsIgnoreCase(method)) {
-                handleUpdateAddress(req, resp, addressId, jsonBody);
-            } else if ("DELETE".equalsIgnoreCase(method)) {
-                handleDeleteAddress(req, resp, addressId);
-            } else {
-                sendError(resp, "Method not allowed", HttpServletResponse.SC_METHOD_NOT_ALLOWED);
-            }
+        if ("/direct".equals(pathInfo)) {
+            handleCreateDirect(req, resp, jsonBody);
             return;
         }
-        
-        if (pathInfo.matches("/\\d+/default")) {
+
+        if (pathInfo.matches("/\\d+/address")) {
             String[] parts = pathInfo.split("/");
-            Long addressId = Long.parseLong(parts[1]);
-            handleSetDefaultAddress(req, resp, addressId);
+            Long orderId = Long.parseLong(parts[1]);
+            handleUpdateOrderAddress(req, resp, orderId, jsonBody);
+            return;
+        }
+        
+        if (pathInfo.matches("/\\d+/cancel")) {
+            String[] parts = pathInfo.split("/");
+            Long orderId = Long.parseLong(parts[1]);
+            handleCancelOrder(req, resp, orderId);
             return;
         }
         
@@ -119,12 +117,12 @@ public class AddressController extends BaseController {
     }
     
     /**
-     * Handles GET /customer/addresses/ - lists all addresses for current customer.
+     * Handles GET /customer/orders/ - retrieves customer's orders with filters.
      *
      * @param req the HTTP request object
      * @param resp the HTTP response object
      */
-    private void handleGetAddresses(HttpServletRequest req, HttpServletResponse resp) {
+    private void handleGetOrders(HttpServletRequest req, HttpServletResponse resp) {
         AsyncContext asyncContext = req.startAsync();
         asyncContext.setTimeout(60000);
         
@@ -135,19 +133,16 @@ public class AddressController extends BaseController {
                     HttpServletRequest request = (HttpServletRequest) asyncContext.getRequest();
                     
                     String sessionToken = getSessionTokenFromCookie(request);
-                    model.Customer customer = customerService.getCurrentCustomer(sessionToken);
+                    Customer customer = customerService.getCurrentCustomer(sessionToken);
                     if (customer == null) {
                         sendError(response, "Unauthorized", HttpServletResponse.SC_UNAUTHORIZED);
                         return;
                     }
                     
-                    List<Address> addresses = addressService.getAddresses(customer.getCustomerId());
+                    OrderFilterRequest filter = parseOrderFilterRequest(request);
+                    Map<String, Object> result = orderService.getCustomerOrders(customer.getCustomerId(), filter);
                     
-                    Map<String, Object> data = new HashMap<>();
-                    data.put("addresses", addresses);
-                    data.put("total", addresses.size());
-                    
-                    sendSuccess(response, data);
+                    sendSuccess(response, result);
                     
                 } catch (Exception e) {
                     try {
@@ -168,13 +163,13 @@ public class AddressController extends BaseController {
     }
     
     /**
-     * Handles GET /customer/addresses/{id} - retrieves a specific address.
+     * Handles GET /customer/orders/{id} - retrieves a single order by ID.
      *
      * @param req the HTTP request object
      * @param resp the HTTP response object
-     * @param addressId the address ID
+     * @param orderId the order ID
      */
-    private void handleGetAddress(HttpServletRequest req, HttpServletResponse resp, Long addressId) {
+    private void handleGetOrder(HttpServletRequest req, HttpServletResponse resp, Long orderId) {
         AsyncContext asyncContext = req.startAsync();
         asyncContext.setTimeout(60000);
         
@@ -185,15 +180,15 @@ public class AddressController extends BaseController {
                     HttpServletRequest request = (HttpServletRequest) asyncContext.getRequest();
                     
                     String sessionToken = getSessionTokenFromCookie(request);
-                    model.Customer customer = customerService.getCurrentCustomer(sessionToken);
+                    Customer customer = customerService.getCurrentCustomer(sessionToken);
                     if (customer == null) {
                         sendError(response, "Unauthorized", HttpServletResponse.SC_UNAUTHORIZED);
                         return;
                     }
                     
-                    Address address = addressService.getAddress(addressId, customer.getCustomerId());
+                    OrderResponse orderResponse = orderService.getOrder(orderId, customer.getCustomerId());
                     
-                    sendSuccess(response, address);
+                    sendSuccess(response, orderResponse);
                     
                 } catch (Exception e) {
                     try {
@@ -214,58 +209,13 @@ public class AddressController extends BaseController {
     }
     
     /**
-     * Handles GET /customer/addresses/default - retrieves default address.
-     *
-     * @param req the HTTP request object
-     * @param resp the HTTP response object
-     */
-    private void handleGetDefaultAddress(HttpServletRequest req, HttpServletResponse resp) {
-        AsyncContext asyncContext = req.startAsync();
-        asyncContext.setTimeout(60000);
-        
-        try {
-            AsyncExecutor.EXECUTOR.submit(() -> {
-                try {
-                    HttpServletResponse response = (HttpServletResponse) asyncContext.getResponse();
-                    HttpServletRequest request = (HttpServletRequest) asyncContext.getRequest();
-                    
-                    String sessionToken = getSessionTokenFromCookie(request);
-                    model.Customer customer = customerService.getCurrentCustomer(sessionToken);
-                    if (customer == null) {
-                        sendError(response, "Unauthorized", HttpServletResponse.SC_UNAUTHORIZED);
-                        return;
-                    }
-                    
-                    Address address = addressService.getDefaultAddress(customer.getCustomerId());
-                    
-                    sendSuccess(response, address);
-                    
-                } catch (Exception e) {
-                    try {
-                        sendError((HttpServletResponse) asyncContext.getResponse(), e.getMessage(), 
-                                 HttpServletResponse.SC_NOT_FOUND);
-                    } catch (IOException ignored) {}
-                } finally {
-                    asyncContext.complete();
-                }
-            });
-        } catch (RejectedExecutionException ex) {
-            try {
-                sendError(resp, "Server overloaded", HttpServletResponse.SC_SERVICE_UNAVAILABLE);
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
-        }
-    }
-    
-    /**
-     * Handles POST /customer/addresses/ - creates a new address.
+     * Handles POST /customer/orders/cart - creates order from cart items.
      *
      * @param req the HTTP request object
      * @param resp the HTTP response object
      * @param jsonBody the request body as JSON string
      */
-    private void handleCreateAddress(HttpServletRequest req, HttpServletResponse resp, String jsonBody) {
+    private void handleCreateFromCart(HttpServletRequest req, HttpServletResponse resp, String jsonBody) {
         AsyncContext asyncContext = req.startAsync();
         asyncContext.setTimeout(60000);
         
@@ -276,24 +226,16 @@ public class AddressController extends BaseController {
                     HttpServletRequest request = (HttpServletRequest) asyncContext.getRequest();
                     
                     String sessionToken = getSessionTokenFromCookie(request);
-                    model.Customer customer = customerService.getCurrentCustomer(sessionToken);
+                    Customer customer = customerService.getCurrentCustomer(sessionToken);
                     if (customer == null) {
                         sendError(response, "Unauthorized", HttpServletResponse.SC_UNAUTHORIZED);
                         return;
                     }
                     
-                    AddressRequest addressRequest = parseAddressRequest(jsonBody);
+                    OrderRequest orderRequest = parseOrderRequest(jsonBody);
+                    OrderResponse orderResponse = orderService.createOrderFromCart(customer.getCustomerId(), orderRequest);
                     
-                    Address address = addressService.createAddress(customer.getCustomerId(), addressRequest);
-                    
-                    Map<String, Object> data = new HashMap<>();
-                    data.put("addressId", address.getAddressId());
-                    data.put("recipientName", address.getRecipientName());
-                    data.put("addressLine", address.getAddressLine());
-                    data.put("city", address.getCity());
-                    data.put("isDefault", address.isDefault());
-                    
-                    sendSuccess(response, "Address created successfully", data);
+                    sendSuccess(response, "Order created successfully", orderResponse);
                     
                 } catch (Exception e) {
                     try {
@@ -314,15 +256,13 @@ public class AddressController extends BaseController {
     }
     
     /**
-     * Handles PATCH /customer/addresses/{id} - updates an existing address.
+     * Handles POST /customer/orders/direct - creates order for a single product.
      *
      * @param req the HTTP request object
      * @param resp the HTTP response object
-     * @param addressId the address ID
      * @param jsonBody the request body as JSON string
      */
-    private void handleUpdateAddress(HttpServletRequest req, HttpServletResponse resp, 
-                                      Long addressId, String jsonBody) {
+    private void handleCreateDirect(HttpServletRequest req, HttpServletResponse resp, String jsonBody) {
         AsyncContext asyncContext = req.startAsync();
         asyncContext.setTimeout(60000);
         
@@ -333,17 +273,16 @@ public class AddressController extends BaseController {
                     HttpServletRequest request = (HttpServletRequest) asyncContext.getRequest();
                     
                     String sessionToken = getSessionTokenFromCookie(request);
-                    model.Customer customer = customerService.getCurrentCustomer(sessionToken);
+                    Customer customer = customerService.getCurrentCustomer(sessionToken);
                     if (customer == null) {
                         sendError(response, "Unauthorized", HttpServletResponse.SC_UNAUTHORIZED);
                         return;
                     }
                     
-                    AddressRequest addressRequest = parseAddressRequest(jsonBody);
+                    DirectOrderRequest directRequest = parseDirectOrderRequest(jsonBody);
+                    OrderResponse orderResponse = orderService.createDirectOrder(customer.getCustomerId(), directRequest);
                     
-                    addressService.updateAddress(addressId, customer.getCustomerId(), addressRequest);
-                    
-                    sendSuccess(response, "Address updated successfully", null);
+                    sendSuccess(response, "Order created successfully", orderResponse);
                     
                 } catch (Exception e) {
                     try {
@@ -362,15 +301,17 @@ public class AddressController extends BaseController {
             }
         }
     }
-    
+
     /**
-     * Handles DELETE /customer/addresses/{id} - deletes an address.
+     * Handles POST /customer/orders/{id}/address - updates shipping address for pending order.
      *
      * @param req the HTTP request object
      * @param resp the HTTP response object
-     * @param addressId the address ID
+     * @param orderId the order ID
+     * @param jsonBody the request body as JSON string
      */
-    private void handleDeleteAddress(HttpServletRequest req, HttpServletResponse resp, Long addressId) {
+    private void handleUpdateOrderAddress(HttpServletRequest req, HttpServletResponse resp, 
+                                           Long orderId, String jsonBody) {
         AsyncContext asyncContext = req.startAsync();
         asyncContext.setTimeout(60000);
         
@@ -381,15 +322,16 @@ public class AddressController extends BaseController {
                     HttpServletRequest request = (HttpServletRequest) asyncContext.getRequest();
                     
                     String sessionToken = getSessionTokenFromCookie(request);
-                    model.Customer customer = customerService.getCurrentCustomer(sessionToken);
+                    Customer customer = customerService.getCurrentCustomer(sessionToken);
                     if (customer == null) {
                         sendError(response, "Unauthorized", HttpServletResponse.SC_UNAUTHORIZED);
                         return;
                     }
                     
-                    addressService.deleteAddress(addressId, customer.getCustomerId());
+                    UpdateOrderAddressRequest addressRequest = parseUpdateAddressRequest(jsonBody);
+                    orderService.updateOrderAddress(orderId, customer.getCustomerId(), addressRequest);
                     
-                    sendSuccess(response, "Address deleted successfully", null);
+                    sendSuccess(response, "Shipping address updated successfully", null);
                     
                 } catch (Exception e) {
                     try {
@@ -410,13 +352,13 @@ public class AddressController extends BaseController {
     }
     
     /**
-     * Handles POST /customer/addresses/{id}/default - sets an address as default.
+     * Handles POST /customer/orders/{id}/cancel - cancels a pending order.
      *
      * @param req the HTTP request object
      * @param resp the HTTP response object
-     * @param addressId the address ID
+     * @param orderId the order ID
      */
-    private void handleSetDefaultAddress(HttpServletRequest req, HttpServletResponse resp, Long addressId) {
+    private void handleCancelOrder(HttpServletRequest req, HttpServletResponse resp, Long orderId) {
         AsyncContext asyncContext = req.startAsync();
         asyncContext.setTimeout(60000);
         
@@ -427,19 +369,15 @@ public class AddressController extends BaseController {
                     HttpServletRequest request = (HttpServletRequest) asyncContext.getRequest();
                     
                     String sessionToken = getSessionTokenFromCookie(request);
-                    model.Customer customer = customerService.getCurrentCustomer(sessionToken);
+                    Customer customer = customerService.getCurrentCustomer(sessionToken);
                     if (customer == null) {
                         sendError(response, "Unauthorized", HttpServletResponse.SC_UNAUTHORIZED);
                         return;
                     }
                     
-                    addressService.setDefaultAddress(addressId, customer.getCustomerId());
+                    orderService.cancelOrder(orderId, customer.getCustomerId());
                     
-                    Map<String, Object> data = new HashMap<>();
-                    data.put("addressId", addressId);
-                    data.put("isDefault", true);
-                    
-                    sendSuccess(response, "Default address updated successfully", data);
+                    sendSuccess(response, "Order cancelled successfully", null);
                     
                 } catch (Exception e) {
                     try {
@@ -460,26 +398,170 @@ public class AddressController extends BaseController {
     }
     
     /**
-     * Parses JSON into AddressRequest object.
+     * Parses JSON into OrderRequest object.
      *
      * @param json the JSON string
-     * @return populated AddressRequest object
+     * @return populated OrderRequest
      */
-    private AddressRequest parseAddressRequest(String json) {
-        AddressRequest req = new AddressRequest();
-        req.setRecipientName(JsonUtil.getString(json, "recipientName"));
-        req.setAddressLine(JsonUtil.getString(json, "addressLine"));
-        req.setCity(JsonUtil.getString(json, "city"));
-        req.setState(JsonUtil.getString(json, "state"));
-        req.setPostalCode(JsonUtil.getString(json, "postalCode"));
-        req.setCountry(JsonUtil.getString(json, "country"));
-        req.setPhone(JsonUtil.getString(json, "phone"));
+    private OrderRequest parseOrderRequest(String json) {
+        OrderRequest req = new OrderRequest();
         
-        String isDefault = JsonUtil.getString(json, "isDefault");
-        if (isDefault != null) {
-            req.setIsDefault(Boolean.parseBoolean(isDefault));
+        Map<String, String> parsed = JsonUtil.jsonToMap(json);
+        
+        req.setAddressType(parsed.get("addressType"));
+        
+        String addressId = parsed.get("addressId");
+        if (addressId != null && !addressId.isEmpty()) {
+            try {
+                req.setAddressId(Long.parseLong(addressId));
+            } catch (NumberFormatException ignored) {}
+        }
+        
+        String oneTimeJson = parsed.get("oneTimeAddress");
+        if (oneTimeJson != null && !oneTimeJson.isEmpty()) {
+            Map<String, String> oneTimeMap = JsonUtil.jsonToMap(oneTimeJson);
+            OrderRequest.OneTimeAddress oneTime = new OrderRequest.OneTimeAddress();
+            oneTime.setRecipientName(oneTimeMap.get("recipientName"));
+            oneTime.setAddressLine(oneTimeMap.get("addressLine"));
+            oneTime.setCity(oneTimeMap.get("city"));
+            oneTime.setState(oneTimeMap.get("state"));
+            oneTime.setPostalCode(oneTimeMap.get("postalCode"));
+            oneTime.setCountry(oneTimeMap.get("country"));
+            oneTime.setPhone(oneTimeMap.get("phone"));
+            req.setOneTimeAddress(oneTime);
+        }
+        
+        req.setPaymentMethod(parsed.get("paymentMethod"));
+        return req;
+    }
+    
+    /**
+     * Parses JSON into DirectOrderRequest object.
+     *
+     * @param json the JSON string
+     * @return populated DirectOrderRequest
+     */
+    private DirectOrderRequest parseDirectOrderRequest(String json) {
+        DirectOrderRequest req = new DirectOrderRequest();
+        
+        Map<String, String> parsed = JsonUtil.jsonToMap(json);
+        
+        req.setProductId(parsed.get("productId"));
+        
+        String quantity = parsed.get("quantity");
+        if (quantity != null && !quantity.isEmpty()) {
+            try {
+                req.setQuantity(Integer.parseInt(quantity));
+            } catch (NumberFormatException ignored) {}
+        }
+        
+        req.setAddressType(parsed.get("addressType"));
+        
+        String addressId = parsed.get("addressId");
+        if (addressId != null && !addressId.isEmpty()) {
+            try {
+                req.setAddressId(Long.parseLong(addressId));
+            } catch (NumberFormatException ignored) {}
+        }
+        
+        String oneTimeJson = parsed.get("oneTimeAddress");
+        if (oneTimeJson != null && !oneTimeJson.isEmpty()) {
+            Map<String, String> oneTimeMap = JsonUtil.jsonToMap(oneTimeJson);
+            OrderRequest.OneTimeAddress oneTime = new OrderRequest.OneTimeAddress();
+            oneTime.setRecipientName(oneTimeMap.get("recipientName"));
+            oneTime.setAddressLine(oneTimeMap.get("addressLine"));
+            oneTime.setCity(oneTimeMap.get("city"));
+            oneTime.setState(oneTimeMap.get("state"));
+            oneTime.setPostalCode(oneTimeMap.get("postalCode"));
+            oneTime.setCountry(oneTimeMap.get("country"));
+            oneTime.setPhone(oneTimeMap.get("phone"));
+            req.setOneTimeAddress(oneTime);
+        }
+        
+        req.setPaymentMethod(parsed.get("paymentMethod"));
+        return req;
+    }
+    
+    /**
+     * Parses JSON into UpdateOrderAddressRequest object.
+     *
+     * @param json the JSON string
+     * @return populated UpdateOrderAddressRequest
+     */
+    private UpdateOrderAddressRequest parseUpdateAddressRequest(String json) {
+        UpdateOrderAddressRequest req = new UpdateOrderAddressRequest();
+        
+        Map<String, String> parsed = JsonUtil.jsonToMap(json);
+        
+        req.setAddressType(parsed.get("addressType"));
+        
+        String addressId = parsed.get("addressId");
+        if (addressId != null && !addressId.isEmpty()) {
+            try {
+                req.setAddressId(Long.parseLong(addressId));
+            } catch (NumberFormatException ignored) {}
+        }
+        
+        String oneTimeJson = parsed.get("oneTimeAddress");
+        if (oneTimeJson != null && !oneTimeJson.isEmpty()) {
+            Map<String, String> oneTimeMap = JsonUtil.jsonToMap(oneTimeJson);
+            OrderRequest.OneTimeAddress oneTime = new OrderRequest.OneTimeAddress();
+            oneTime.setRecipientName(oneTimeMap.get("recipientName"));
+            oneTime.setAddressLine(oneTimeMap.get("addressLine"));
+            oneTime.setCity(oneTimeMap.get("city"));
+            oneTime.setState(oneTimeMap.get("state"));
+            oneTime.setPostalCode(oneTimeMap.get("postalCode"));
+            oneTime.setCountry(oneTimeMap.get("country"));
+            oneTime.setPhone(oneTimeMap.get("phone"));
+            req.setOneTimeAddress(oneTime);
         }
         
         return req;
+    }
+    
+    /**
+     * Parses request parameters into OrderFilterRequest object.
+     *
+     * @param req the HTTP request object
+     * @return populated OrderFilterRequest
+     */
+    private OrderFilterRequest parseOrderFilterRequest(HttpServletRequest req) {
+        OrderFilterRequest filter = new OrderFilterRequest();
+        filter.setStatus(req.getParameter("status"));
+        filter.setFromDate(req.getParameter("fromDate"));
+        filter.setToDate(req.getParameter("toDate"));
+        
+        String minAmount = req.getParameter("minAmount");
+        if (minAmount != null) {
+            try {
+                filter.setMinAmount(Double.parseDouble(minAmount));
+            } catch (NumberFormatException ignored) {}
+        }
+        
+        String maxAmount = req.getParameter("maxAmount");
+        if (maxAmount != null) {
+            try {
+                filter.setMaxAmount(Double.parseDouble(maxAmount));
+            } catch (NumberFormatException ignored) {}
+        }
+        
+        filter.setSortBy(req.getParameter("sortBy"));
+        filter.setSortDir(req.getParameter("sortDir"));
+        
+        String page = req.getParameter("page");
+        if (page != null) {
+            try {
+                filter.setPage(Integer.parseInt(page));
+            } catch (NumberFormatException ignored) {}
+        }
+        
+        String size = req.getParameter("size");
+        if (size != null) {
+            try {
+                filter.setSize(Integer.parseInt(size));
+            } catch (NumberFormatException ignored) {}
+        }
+        
+        return filter;
     }
 }
