@@ -31,6 +31,7 @@ javac -cp "/opt/tomcat/lib/*" \
 echo "[4/5] Copying files to webapps..."
 mkdir -p "$DEPLOY_DIR"
 cp -r "$APP_SRC/WEB-INF"   "$DEPLOY_DIR/"
+cp -r "$APP_SRC/views"     "$DEPLOY_DIR/"
 
 echo "[5/5] Starting Tomcat..."
 $TOMCAT_HOME/bin/startup.sh

@@ -300,3 +300,39 @@ JCart/
 | `/admin/transactions`                     | GET    | Admin    | `transactions:view`   | List all transactions (paginated, filters)|
 | `/admin/transactions/{id}`                | GET    | Admin    | `transactions:view`   | Get transaction details                   |
 | `/admin/transactions/{id}/action`         | POST   | Admin    | `transactions:update` | Approve or reject refund request          |
+
+
+
+## Folder Structure (Views)
+
+```
+views/
+├── index.html                                  # Main landing page
+├── styles.css                                  # Global styles
+├── assets/
+│   └── favicon.svg                             # Site favicon
+├── shared/
+│   ├── navbar/                                 # Site navigation header
+│   └── footer/                                 # Site footer component
+├── utils/
+│   ├── auth.js                                 # Auth util
+│   └── toast.js                                # Toast util
+└── features/
+    └── auth/customer/
+        ├── login/                              # Customer login page
+        └── register/                           # Customer registration page
+```
+
+## Features (Views)
+
+1. Customer Authentication, Home Page & Shared Components
+   - User registration and login with form validation
+   - Login Page - Secure authentication with error handling and loading states
+   - Registration Page - Account creation with password strength validation and terms popup
+   - Reusable UI components for consistent site-wide navigation and branding 
+   - Navbar Component - Logo, navigation links, and user authentication status
+   - Footer Component - Company information and links with dynamic year update
+   - Main landing page with featured content and navigation
+   - Homepage Layout - Welcome section with easy access to key features
+   - Utility modules for authentication handling and toast notifications
+

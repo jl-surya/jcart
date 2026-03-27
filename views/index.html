@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<!-- JCart Main Landing Page - Homepage with featured products and navigation -->
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+    <meta name="description" content="JCart - Your premium shopping destination for quality products at unbeatable prices">
+    <meta name="keywords" content="ecommerce, shopping, online store, JCart">
+    <meta name="author" content="JCart">
+    <title>JCart - Premium Shopping Destination</title>
+    <link rel="icon" type="image/svg+xml" href="/JCart/views/assets/favicon.svg">
+    <link rel="stylesheet" href="/JCart/views/shared/navbar/navbar.css">
+    <link rel="stylesheet" href="/JCart/views/shared/footer/footer.css">
+    <link rel="stylesheet" href="/JCart/views/styles.css">
+    <script src="/JCart/views/utils/toast.js" defer></script>
+    <script src="/JCart/views/shared/navbar/navbar.js" defer></script>
+    <script src="/JCart/views/shared/footer/footer.js" defer></script>
+</head>
+<body>
+    <header id="navbar"></header>
+
+    <main class="container">
+        <div class="hero-section">
+            <h1>Welcome to JCart</h1>
+            <p class="hero-subtitle">Your ultimate destination for premium shopping. Discover exclusive products, amazing deals, and a fast checkout experience.</p>
+        </div>
+
+        <!-- Guest Section -->
+        <div id="authSection" class="auth-section">
+            <div class="auth-info">
+                <h3>Join Our Community</h3>
+                <p>Sign in to your account to access exclusive offers and track your orders.</p>
+            </div>
+            <div class="auth-buttons-container">
+                <a href="/JCart/views/features/auth/customer/login/" class="btn btn-primary">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                    Sign In
+                </a>
+                <a href="/JCart/views/features/auth/customer/register/" class="btn btn-secondary">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="23" y1="11" x2="17" y2="11"/></svg>
+                    Create Account
+                </a>
+            </div>
+        </div>
+
+        <!-- Authenticated User Section -->
+        <div id="welcomeSection" class="welcome-section hidden">
+            <h3>Welcome back, <span id="username">Customer</span>!</h3>
+            <p>Ready to discover amazing products and exclusive deals? Start shopping now!</p>
+            <div class="action-buttons">
+                <a href="/JCart/views/features/products/customer/search/" class="btn btn-primary">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>
+                    Shop Now
+                </a>
+                <a href="/JCart/views/features/products/customer/search/" class="btn btn-secondary">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                    Browse Products
+                </a>
+                <a href="/JCart/views/features/profile/customer/" class="btn btn-outline">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                    My Profile
+                </a>
+            </div>
+        </div>
+
+        <!-- Features Section -->
+        <div class="features-section">
+            <div class="feature-card">
+                <div class="feature-icon">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
+                </div>
+                <h4>Free Shipping</h4>
+                <p>On orders over $50</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+                </div>
+                <h4>Best Prices</h4>
+                <p>Guaranteed low prices</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+                </div>
+                <h4>Secure Checkout</h4>
+                <p>Safe transactions</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+                </div>
+                <h4>24/7 Support</h4>
+                <p>Always here to help</p>
+            </div>
+        </div>
+
+        <!-- Popular Categories Section -->
+        <div class="categories-section">
+            <h2>Shop by Category</h2>
+            <div class="categories-grid">
+                <a href="#" class="category-card">
+                    <span class="category-icon">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.38 3.46L16 2a4 4 0 01-8 0L3.62 3.46a2 2 0 00-1.34 2.23l.58 3.47a1 1 0 00.99.84H6v10c0 1.1.9 2 2 2h8a2 2 0 002-2V10h2.15a1 1 0 00.99-.84l.58-3.47a2 2 0 00-1.34-2.23z"/></svg>
+                    </span>
+                    <span class="category-name">Clothing</span>
+                </a>
+                <a href="#" class="category-card">
+                    <span class="category-icon">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 18a1 1 0 0 0 1 1h18a1 1 0 0 0 1-1v-2a1 1 0 0 0-1-1H3a1 1 0 0 0-1 1v2z"/><path d="M10 10V5a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v5"/><path d="M4 15v-3a6 6 0 0 1 6-6"/><path d="M14 6a6 6 0 0 1 6 6v3"/></svg>
+                    </span>
+                    <span class="category-name">Footwear</span>
+                </a>
+                <a href="#" class="category-card">
+                    <span class="category-icon">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="2" width="14" height="20" rx="2" ry="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg>
+                    </span>
+                    <span class="category-name">Electronics</span>
+                </a>
+                <a href="#" class="category-card">
+                    <span class="category-icon">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M16 8h-6a2 2 0 1 0 0 4h4a2 2 0 1 1 0 4H8"/><path d="M12 18V6"/></svg>
+                    </span>
+                    <span class="category-name">Accessories</span>
+                </a>
+            </div>
+        </div>
+    </main>
+
+    <footer id="footer"></footer>
+
+    <script>
+        (function () {
+            'use strict';
+
+            // Load Navbar
+            fetch('/JCart/views/shared/navbar/navbar.html')
+                .then(function (response) {
+                    if (!response.ok) throw new Error('Failed to load navbar');
+                    return response.text();
+                })
+                .then(function (data) {
+                    document.getElementById('navbar').innerHTML = data;
+                    if (window.initializeNavbar) window.initializeNavbar();
+                })
+                .catch(function (error) {
+                    console.error('Error loading navbar:', error);
+                });
+
+            // Load Footer
+            fetch('/JCart/views/shared/footer/footer.html')
+                .then(function (response) {
+                    if (!response.ok) throw new Error('Failed to load footer');
+                    return response.text();
+                })
+                .then(function (data) {
+                    document.getElementById('footer').innerHTML = data;
+                })
+                .catch(function (error) {
+                    console.error('Error loading footer:', error);
+                });
+
+            // Check user authentication state
+            function checkAuthState() {
+                var isLoggedIn = localStorage.getItem('isLoggedIn') === 'true';
+                var userData;
+                try {
+                    userData = JSON.parse(localStorage.getItem('user') || '{}');
+                } catch (e) {
+                    userData = {};
+                }
+
+                var authSection = document.getElementById('authSection');
+                var welcomeSection = document.getElementById('welcomeSection');
+
+                if (!authSection || !welcomeSection) return;
+
+                if (isLoggedIn && userData.name) {
+                    authSection.classList.add('hidden');
+                    welcomeSection.classList.remove('hidden');
+                    document.getElementById('username').textContent = userData.name;
+                } else {
+                    authSection.classList.remove('hidden');
+                    welcomeSection.classList.add('hidden');
+                }
+            }
+
+            checkAuthState();
+            document.addEventListener('visibilitychange', checkAuthState);
+            window.addEventListener('storage', checkAuthState);
+        })();
+    </script>
+</body>
+</html>
