@@ -28,4 +28,20 @@
         <servlet-name>ProductController</servlet-name>
         <url-pattern>/products/*</url-pattern>
     </servlet-mapping>
+
+    <!-- Error Pages -->
+    <error-page>
+        <error-code>404</error-code>
+        <location>/views/features/error/index.html?type=404</location>
+    </error-page>
+    
+    <error-page>
+        <error-code>403</error-code>
+        <location>/views/features/error/index.html?type=403</location>
+    </error-page>
+    
+    <error-page>
+        <error-code>500</error-code>
+        <location>/views/features/error/index.html?type=500</location>
+    </error-page>
 </web-app>

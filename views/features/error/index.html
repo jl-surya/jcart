@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<!-- Error Page - 404 Not Found and other error scenarios -->
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+    <meta name="description" content="Page Not Found - JCart">
+    <meta name="author" content="JCart">
+    <title>Page Not Found - JCart</title>
+    <link rel="icon" type="image/svg+xml" href="/JCart/views/assets/favicon.svg">
+    <link rel="stylesheet" href="/JCart/views/styles.css">
+    <link rel="stylesheet" href="/JCart/views/shared/navbar/navbar.css">
+    <link rel="stylesheet" href="/JCart/views/shared/footer/footer.css">
+    <link rel="stylesheet" href="/JCart/views/features/error/styles.css">
+</head>
+<body>
+    <header id="navbar">
+        <!-- Navigation will be loaded here -->
+    </header>
+
+    <main class="error-main">
+        <div class="container">
+            <div class="error-content">
+                <!-- Error Icon -->
+                <div class="error-icon" id="errorIcon">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="12" cy="12" r="10"/>
+                        <path d="m9 9 6 6"/>
+                        <path d="m15 9-6 6"/>
+                    </svg>
+                </div>
+
+                <!-- Error Details -->
+                <div class="error-details">
+                    <h1 id="errorTitle" class="error-title">Page Not Found</h1>
+                    <p id="errorMessage" class="error-message">
+                        The page you're looking for doesn't exist or has been moved.
+                    </p>
+                    <div id="errorCode" class="error-code">Error 404</div>
+                </div>
+
+                <!-- Error Actions -->
+                <div class="error-actions">
+                    <a href="/JCart/views/index.html" class="btn btn-primary">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
+                            <polyline points="9,22 9,12 15,12 15,22"/>
+                        </svg>
+                        Go Home
+                    </a>
+                    
+                    <a href="/JCart/views/features/products/customer/search/" class="btn btn-secondary">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <circle cx="11" cy="11" r="8"/>
+                            <path d="m21 21-4.35-4.35"/>
+                        </svg>
+                        Browse Products
+                    </a>
+
+                    <button type="button" class="btn btn-text" id="goBackBtn">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <polyline points="15 18 9 12 15 6"/>
+                        </svg>
+                        Go Back
+                    </button>
+                </div>
+
+                <!-- Helpful Links -->
+                <div class="helpful-links">
+                    <h3>Need help? Try these:</h3>
+                    <ul>
+                        <li><a href="/JCart/views/features/auth/customer/login/">Customer Login</a></li>
+                        <li><a href="/JCart/views/features/auth/customer/register/">Create Account</a></li>
+                        <li><a href="/JCart/views/features/cart/">Shopping Cart</a></li>
+                        <li><a href="/JCart/views/features/products/customer/search/">All Products</a></li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <footer id="footer">
+        <!-- Footer will be loaded here -->
+    </footer>
+
+    <!-- Scripts -->
+    <script src="/JCart/views/shared/navbar/navbar.js"></script>
+    <script src="/JCart/views/shared/footer/footer.js"></script>
+    <script src="/JCart/views/features/error/script.js"></script>
+</body>
+</html>

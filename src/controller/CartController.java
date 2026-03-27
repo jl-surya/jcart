@@ -151,6 +151,7 @@ public class CartController extends BaseController {
                         itemData.put("productName", item.getProductName());
                         itemData.put("quantity", item.getQuantity());
                         itemData.put("price", item.getPrice());
+                        itemData.put("discount", item.getDiscount());
                         itemData.put("subtotal", item.getSubtotal());
                         itemData.put("availableStock", item.getStockLevel());
                         itemData.put("addedAt", item.getAddedAt());

@@ -1,10 +1,11 @@
 # JCart - E-Commerce Platform
 
-A Java-based e-commerce platform built with Jakarta Servlet, PostgreSQL, and JSP.
+A Java-based e-commerce platform with modern frontend built using Jakarta Servlet, PostgreSQL, and HTML/CSS/JavaScript.
 
 ## Tech Stack
 
 - **Backend**: Jakarta Servlet 6.0, JDBC
+- **Frontend**: HTML, CSS, JavaScript
 - **Database**: PostgreSQL 15.1
 - **Server**: Apache Tomcat 10.1
 - **Build**: Manual compilation with `javac`
@@ -308,19 +309,27 @@ JCart/
 ```
 views/
 ├── index.html                                  # Main landing page
-├── styles.css                                  # Global styles
+├── styles.css                                  # Global styles & theme variables
 ├── assets/
-│   └── favicon.svg                             # Site favicon
-├── shared/
-│   ├── navbar/                                 # Site navigation header
-│   └── footer/                                 # Site footer component
-├── utils/
-│   ├── auth.js                                 # Auth util
-│   └── toast.js                                # Toast util
-└── features/
-    └── auth/customer/
-        ├── login/                              # Customer login page
-        └── register/                           # Customer registration page
+│   ├── favicon.svg                             # Custom JCart site favicon
+│   └── image.svg                               # Default product placeholder image
+├── shared/                                     # Reusable UI components
+│   ├── navbar/                                 # Site navigation header with cart badge
+│   ├── footer/                                 # Site footer component
+│   ├── pagination/                             # Reusable pagination component
+│   └── cart-modal/                             # Shopping cart confirmation modal
+├── utils/                                      # Global utility functions
+│   ├── auth.js                                 # Authentication utilities & session management
+│   └── toast.js                                # Toast notification system
+└── features/                                   # Feature-specific pages
+    ├── auth/customer/                          # Customer authentication flows
+    │   ├── login/                              # Customer login page
+    │   └── register/                           # Customer registration page  
+    ├── products/customer/                      # Product browsing & viewing
+    │   ├── search/                             # Product search & listing page
+    │   └── detail/                             # Individual product detail page
+    ├── cart/                                   # Shopping cart management
+    └── error/                                  # Error page handling
 ```
 
 ## Features (Views)
@@ -336,3 +345,13 @@ views/
    - Homepage Layout - Welcome section with easy access to key features
    - Utility modules for authentication handling and toast notifications
 
+2. Product Browsing, Shopping Cart & E-Commerce System
+   - Product Search & Filtering - Advanced search with category, price range, and availability filters
+   - Product Grid Display - Responsive grid layout with hover effects and pricing
+   - Product Detail Pages - Comprehensive product view with specifications and purchase options
+   - Shopping Cart Integration - One-click add to cart with quantity selection modal
+   - Cart Management - Full cart operations with real-time totals and quantity updates
+   - Cart Modal Component - Instant confirmation with product images and cart synchronization
+   - Pagination System - Reusable component supporting 15/30/45 items per page with URL state
+   - Real-time Cart Badge - Dynamic cart item count in navbar for authenticated users
+   - Error Handling Pages - Custom 404 and error pages with navigation options

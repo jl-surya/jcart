@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<!-- Product Search Page - Browse and search products with filters and pagination -->
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+    <meta name="description" content="Browse and search products at JCart - Find the best deals on quality products">
+    <meta name="keywords" content="products, shopping, search, JCart, ecommerce">
+    <title>Products - JCart</title>
+    <link rel="icon" type="image/svg+xml" href="/JCart/views/assets/favicon.svg">
+    <link rel="stylesheet" href="/JCart/views/shared/navbar/navbar.css">
+    <link rel="stylesheet" href="/JCart/views/shared/pagination/pagination.css">
+    <link rel="stylesheet" href="/JCart/views/shared/cart-modal/cart-modal.css">
+    <link rel="stylesheet" href="styles.css">
+    <script src="/JCart/views/shared/navbar/navbar.js" defer></script>
+    <script src="/JCart/views/shared/pagination/pagination.js" defer></script>
+    <script src="/JCart/views/shared/cart-modal/cart-modal.js" defer></script>
+    <script src="/JCart/views/utils/auth.js" defer></script>
+    <script src="/JCart/views/utils/toast.js" defer></script>
+    <script src="script.js" defer></script>
+</head>
+<body>
+    <header id="navbar"></header>
+
+    <main class="products-container">
+        <div class="products-header">
+            <h1>Our Products</h1>
+            <p class="products-subtitle">Discover our wide range of quality products at great prices</p>
+        </div>
+
+        <div class="products-layout">
+            <!-- Mobile Filter Overlay -->
+            <div class="filters-overlay" id="filtersOverlay"></div>
+            
+            <!-- Filters Sidebar -->
+            <aside class="filters-sidebar" id="filtersSidebar">
+                <div class="filters-header">
+                    <h3>
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
+                        Filters
+                    </h3>
+                    <button type="button" class="btn-close-filters" id="closeFiltersBtn">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                    </button>
+                </div>
+
+                <form id="filtersForm">
+                    <!-- Search -->
+                    <div class="filter-group">
+                        <label for="searchKeyword">Search</label>
+                        <div class="search-input-wrapper">
+                            <input type="text" id="searchKeyword" name="keyword" placeholder="Search products...">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                        </div>
+                    </div>
+
+                    <!-- Category -->
+                    <div class="filter-group">
+                        <label for="filterCategory">Category</label>
+                        <select id="filterCategory" name="category">
+                            <option value="">All Categories</option>
+                        </select>
+                    </div>
+
+                    <!-- Gender -->
+                    <div class="filter-group">
+                        <label for="filterGender">Gender</label>
+                        <select id="filterGender" name="gender">
+                            <option value="">All</option>
+                        </select>
+                    </div>
+
+                    <!-- Age Group -->
+                    <div class="filter-group">
+                        <label for="filterAgeGroup">Age Group</label>
+                        <select id="filterAgeGroup" name="ageGroup">
+                            <option value="">All Ages</option>
+                        </select>
+                    </div>
+
+                    <!-- Seasonality -->
+                    <div class="filter-group">
+                        <label for="filterSeasonality">Seasonal</label>
+                        <select id="filterSeasonality" name="seasonality">
+                            <option value="">All</option>
+                            <option value="Yes">Yes</option>
+                            <option value="No">No</option>
+                        </select>
+                    </div>
+
+                    <!-- Price Range -->
+                    <div class="filter-group">
+                        <label>Price Range</label>
+                        <div class="price-range-inputs">
+                            <input type="number" id="filterMinPrice" name="minPrice" placeholder="Min" min="0" step="0.01">
+                            <span class="price-separator">to</span>
+                            <input type="number" id="filterMaxPrice" name="maxPrice" placeholder="Max" min="0" step="0.01">
+                        </div>
+                    </div>
+
+                    <!-- In Stock -->
+                    <div class="filter-group filter-checkbox">
+                        <label class="checkbox-label">
+                            <input type="checkbox" id="filterInStock" name="inStock">
+                            <span class="checkbox-custom"></span>
+                            <span>In Stock Only</span>
+                        </label>
+                    </div>
+
+                    <div class="filter-actions">
+                        <button type="button" class="btn-clear-filters" id="clearFiltersBtn">Clear All</button>
+                        <button type="submit" class="btn-apply-filters">Apply Filters</button>
+                    </div>
+                </form>
+            </aside>
+
+            <!-- Products Grid -->
+            <section class="products-content">
+                <!-- Sort Controls -->
+                <div class="products-toolbar">
+                    <div class="sort-controls">
+                        <label for="sortBy">Sort by:</label>
+                        <select id="sortBy" name="sortBy">
+                            <option value="product_name">Name (A-Z)</option>
+                            <option value="product_name_desc">Name (Z-A)</option>
+                            <option value="price">Price (Low to High)</option>
+                            <option value="price_desc">Price (High to Low)</option>
+                            <option value="created_at_desc" selected>Newest First</option>
+                        </select>
+                    </div>
+                    <button type="button" class="btn-toggle-filters" id="toggleFiltersBtn">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
+                        Filters
+                    </button>
+                </div>
+
+                <!-- Products Grid -->
+                <div class="products-grid" id="productsGrid"></div>
+
+                <!-- Loading State -->
+                <div class="loading-state hidden" id="loadingState">
+                    <div class="loading-spinner"></div>
+                    <p>Loading products...</p>
+                </div>
+
+                <!-- Empty State -->
+                <div class="empty-state hidden" id="emptyState">
+                    <div class="empty-icon">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                    </div>
+                    <h3>No products found</h3>
+                    <p>Try adjusting your filters or search terms</p>
+                    <button type="button" class="btn-reset" id="resetFiltersBtn">Reset Filters</button>
+                </div>
+
+                <!-- Error State -->
+                <div class="error-state hidden" id="errorState">
+                    <div class="error-icon">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                    </div>
+                    <h3>Something went wrong</h3>
+                    <p id="errorMessage">Unable to load products. Please try again.</p>
+                    <button type="button" class="btn-retry" id="retryBtn">Try Again</button>
+                </div>
+
+                <!-- Pagination -->
+                <div class="pagination-wrapper" id="paginationWrapper">
+                    <div class="pagination-container" id="paginationContainer">
+                        <button type="button" class="pagination-btn" id="paginationPrev" aria-label="Previous page">
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+                        </button>
+                        <div class="pagination-pages" id="paginationPages"></div>
+                        <button type="button" class="pagination-btn" id="paginationNext" aria-label="Next page">
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+                        </button>
+                        <div class="pagination-info">
+                            <span id="paginationSummary">Showing 0 of 0</span>
+                            <select id="paginationSize" aria-label="Items per page">
+                                <option value="15">15 per page</option>
+                                <option value="30">30 per page</option>
+                                <option value="45">45 per page</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </div>
+    </main>
+
+    <!-- Quantity Selection Modal -->
+    <div id="quantityModal" class="quantity-modal hidden">
+        <div class="modal-overlay" id="quantityModalOverlay"></div>
+        <div class="modal-container">
+            <div class="modal-header">
+                <h3>Select Quantity</h3>
+                <button type="button" class="modal-close" id="quantityModalClose">×</button>
+            </div>
+            <div class="modal-body">
+                <div class="product-image">
+                    <img id="quantityModalImage" src="" alt="Product">
+                </div>
+                <div class="product-info">
+                    <h4 id="quantityModalProductName">Product Name</h4>
+                    <p class="product-price">₹ <span id="quantityModalPrice">0.00</span></p>
+                    <p class="stock-info">Stock: <span id="quantityModalStock">0</span> available</p>
+                    <div class="quantity-selector">
+                        <label>Quantity:</label>
+                        <div class="quantity-controls">
+                            <button type="button" class="qty-btn" id="decreaseQty">-</button>
+                            <input type="number" id="quantityInput" min="1" max="99" value="1">
+                            <button type="button" class="qty-btn" id="increaseQty">+</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-actions">
+                <button type="button" class="btn btn-secondary" id="quantityModalCancel">Cancel</button>
+                <button type="button" class="btn btn-primary" id="quantityModalConfirm">Add to Cart</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        (function () {
+            'use strict';
+
+            // Load navbar
+            fetch('/JCart/views/shared/navbar/navbar.html')
+                .then(function (r) {
+                    if (!r.ok) throw new Error('Failed to load navbar');
+                    return r.text();
+                })
+                .then(function (html) {
+                    document.getElementById('navbar').innerHTML = html;
+                    if (window.initializeNavbar) window.initializeNavbar();
+                })
+                .catch(function (err) { console.error('Error loading navbar:', err); });
+        })();
+    </script>
+</body>
+</html>

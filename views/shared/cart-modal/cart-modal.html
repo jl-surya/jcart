@@ -1,0 +1,32 @@
+<!-- Cart Modal Component - Add to cart confirmation modal -->
+<div id="cartModal" class="cart-modal hidden">
+    <div class="modal-overlay" id="cartModalOverlay"></div>
+    <div class="modal-container">
+        <div class="modal-header">
+            <h3>Added to Cart</h3>
+            <button type="button" class="modal-close" id="cartModalClose">×</button>
+        </div>
+        
+        <div class="modal-body">
+            <div class="product-info">
+                <h4 id="cartModalProductName">Product Name</h4>
+                <p class="product-price">₹ <span id="cartModalPrice">0.00</span></p>
+            </div>
+            
+            <div class="quantity-display">
+                <label>Quantity:</label>
+                <span id="cartModalQuantity">1</span>
+            </div>
+            
+            <div class="cart-summary">
+                <p><span id="cartModalItemCount">0</span> items in cart</p>
+                <p class="total">Total: ₹ <span id="cartModalTotal">0.00</span></p>
+            </div>
+        </div>
+        
+        <div class="modal-actions">
+            <button type="button" class="btn btn-secondary" id="cartModalContinue">Continue Shopping</button>
+            <button type="button" class="btn btn-primary" id="cartModalViewCart">View Cart</button>
+        </div>
+    </div>
+</div>
