@@ -13,7 +13,7 @@ import java.sql.Timestamp;
  * - Transaction details (type, method, status)
  * - Financial information (amount)
  * - Processing information (processedBy, processedAt, processedByType)
- * - Approval information (approvedBy, approvedAt)
+ * - Verification information (verifiedBy, verifiedAt)
  * - Refund reason (if applicable)
  * - Timestamp for creation
  */
@@ -30,8 +30,8 @@ public class Transaction implements Serializable {
     private String processedByType;
     private String processedBy;
     private Timestamp processedAt;
-    private String approvedBy;
-    private Timestamp approvedAt;
+    private String verifiedBy;
+    private Timestamp verifiedAt;
     private Timestamp createdAt;
 
     public Long getTransactionId() { return transactionId; }
@@ -67,11 +67,11 @@ public class Transaction implements Serializable {
     public Timestamp getProcessedAt() { return processedAt; }
     public void setProcessedAt(Timestamp processedAt) { this.processedAt = processedAt; }
 
-    public String getApprovedBy() { return approvedBy; }
-    public void setApprovedBy(String approvedBy) { this.approvedBy = approvedBy; }
+    public String getVerifiedBy() { return verifiedBy; }
+    public void setVerifiedBy(String verifiedBy) { this.verifiedBy = verifiedBy; }
 
-    public Timestamp getApprovedAt() { return approvedAt; }
-    public void setApprovedAt(Timestamp approvedAt) { this.approvedAt = approvedAt; }
+    public Timestamp getVerifiedAt() { return verifiedAt; }
+    public void setVerifiedAt(Timestamp verifiedAt) { this.verifiedAt = verifiedAt; }
 
     public Timestamp getCreatedAt() { return createdAt; }
     public void setCreatedAt(Timestamp createdAt) { this.createdAt = createdAt; }

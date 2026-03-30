@@ -70,6 +70,8 @@
         var navLoginRegister = document.getElementById('navLoginRegister');
         var navLogout = document.getElementById('navLogout');
         var navCart = document.getElementById('navCart');
+        var navOrders = document.getElementById('navOrders');
+        var navTransactions = document.getElementById('navTransactions');
 
         if (!navLoginRegister || !navLogout) {
             if (retryCount < MAX_RETRIES) {
@@ -87,11 +89,23 @@
                 navCart.classList.remove('hidden');
                 loadCartCount();
             }
+            if (navOrders) {
+                navOrders.classList.remove('hidden');
+            }
+            if (navTransactions) {
+                navTransactions.classList.remove('hidden');
+            }
         } else {
             navLoginRegister.classList.remove('hidden');
             navLogout.classList.add('hidden');
             if (navCart) {
                 navCart.classList.add('hidden');
+            }
+            if (navOrders) {
+                navOrders.classList.add('hidden');
+            }
+            if (navTransactions) {
+                navTransactions.classList.add('hidden');
             }
         }
 

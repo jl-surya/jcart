@@ -30,7 +30,7 @@ public class OrderResponse {
     private BigDecimal shipping;
     private BigDecimal discount;
     private BigDecimal total;
-    private Map<String, Object> payment;
+    private List<Map<String, Object>> payments;
     private String orderStatus;
     private String paymentStatus;
     private Timestamp paymentDeadline;
@@ -57,8 +57,8 @@ public class OrderResponse {
     public void setDiscount(BigDecimal discount) { this.discount = discount; }
     public BigDecimal getTotal() { return total; }
     public void setTotal(BigDecimal total) { this.total = total; }
-    public Map<String, Object> getPayment() { return payment; }
-    public void setPayment(Map<String, Object> payment) { this.payment = payment; }
+    public List<Map<String, Object>> getPayments() { return payments; }
+    public void setPayments(List<Map<String, Object>> payments) { this.payments = payments; }
     public String getOrderStatus() { return orderStatus; }
     public void setOrderStatus(String orderStatus) { this.orderStatus = orderStatus; }
     public String getPaymentStatus() { return paymentStatus; }

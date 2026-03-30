@@ -407,13 +407,13 @@
         if (inStock) {
             cartButtons = 
                 '<div class="product-actions">' +
-                    '<button class="btn-quick-add" onclick="quickAddToCart(\'' + product.productId + '\', \'' + escapeHtml(product.productName) + '\', ' + finalPrice + ', ' + (product.stockLevel || 0) + ')" title="Quick add to cart">' +
+                    '<button class="btn-quick-add" onclick="quickAddToCart(\'' + product.productId + '\', \'' + escapeHtml(product.productName) + '\', ' + finalPrice + ', ' + (product.stockLevel || 0) + ', ' + (product.discount || 0) + ')" title="Quick add to cart">' +
                         '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' +
                             '<circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/>' +
                             '<path d="m1 1 4 4 5.39 7.836a1 1 0 0 0 .85.486L19.42 15.5a1 1 0 0 0 .85-.694l1.8-8.4a1 1 0 0 0-.97-1.243L6 4.98L5.37 3.18a1 1 0 0 0-.93-.66L1 2.5"/>' +
                         '</svg>' +
                     '</button>' +
-                    '<button class="btn-quick-buy" onclick="quickBuyNow(\'' + product.productId + '\', \'' + escapeHtml(product.productName) + '\', ' + finalPrice + ', ' + (product.stockLevel || 0) + ')" title="Buy now">' +
+                    '<button class="btn-quick-buy" onclick="quickBuyNow(\'' + product.productId + '\', \'' + escapeHtml(product.productName) + '\', ' + finalPrice + ', ' + (product.stockLevel || 0) + ', ' + (product.discount || 0) + ')" title="Buy now">' +
                         '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' +
                             '<path d="M3 3h2l.4 2M7 13h10l4-8H5.4m0 0L7 13m0 0l-2.5 5M7 13l2.5 5m6.5-5v6a2 2 0 01-2 2H9a2 2 0 01-2-2v-6m8 0V9a2 2 0 00-2-2H9a2 2 0 00-2 2v4.01"/>' +
                         '</svg>' +
@@ -532,15 +532,16 @@
      * @param {string} productName - Product name for modal display
      * @param {number} price - Product price
      * @param {number} stockLevel - Available stock
+     * @param {number} discount - Product discount percentage
      */
-    window.quickAddToCart = function(productId, productName, price, stockLevel) {
+    window.quickAddToCart = function(productId, productName, price, stockLevel, discount) {
         if (!window.authUtils || !window.authUtils.isAuthenticated()) {
             window.showToast('Please log in to add items to cart', 'warning');
             window.location.href = '/JCart/views/features/auth/customer/login/';
             return;
         }
 
-        showQuantityModal(productId, productName, price, stockLevel || 99);
+        showQuantityModal(productId, productName, price, stockLevel || 99, false, discount || 0);
     };
 
     /**
@@ -549,15 +550,16 @@
      * @param {string} productName - Product name
      * @param {number} price - Product price
      * @param {number} stockLevel - Available stock
+     * @param {number} discount - Product discount percentage
      */
-    window.quickBuyNow = function(productId, productName, price, stockLevel) {
+    window.quickBuyNow = function(productId, productName, price, stockLevel, discount) {
         if (!window.authUtils || !window.authUtils.isAuthenticated()) {
             window.showToast('Please log in to make a purchase', 'warning');
             window.location.href = '/JCart/views/features/auth/customer/login/';
             return;
         }
 
-        showQuantityModal(productId, productName, price, stockLevel || 99, true);
+        showQuantityModal(productId, productName, price, stockLevel || 99, true, discount || 0);
     };
 
     /**
@@ -568,7 +570,8 @@
         productName: null,
         price: null,
         stockLevel: null,
-        isBuyNow: false
+        isBuyNow: false,
+        discount: 0
     };
 
     /**
@@ -578,14 +581,16 @@
      * @param {number} price - Product price
      * @param {number} stockLevel - Available stock
      * @param {boolean} isBuyNow - Whether this is for buy now (redirect to cart) or add to cart
+     * @param {number} discount - Product discount percentage
      */
-    function showQuantityModal(productId, productName, price, stockLevel, isBuyNow) {
+    function showQuantityModal(productId, productName, price, stockLevel, isBuyNow, discount) {
         quantityModalData = { 
             productId: productId, 
             productName: productName, 
             price: price, 
             stockLevel: stockLevel,
-            isBuyNow: isBuyNow || false
+            isBuyNow: isBuyNow || false,
+            discount: discount || 0
         };
         
         var modal = document.getElementById('quantityModal');
@@ -648,9 +653,27 @@
         var productName = quantityModalData.productName;
         var price = quantityModalData.price;
         var isBuyNow = quantityModalData.isBuyNow;
+        var discount = quantityModalData.discount || 0;
         
         hideQuantityModal();
         
+        // If Buy Now, go directly to checkout
+        if (isBuyNow) {
+            var directBuyData = {
+                productId: productId,
+                name: productName,
+                price: price,
+                discount: discount,
+                imageUrl: PLACEHOLDER_IMAGE,
+                quantity: quantity
+            };
+            
+            sessionStorage.setItem('directBuyProduct', JSON.stringify(directBuyData));
+            window.location.href = '/JCart/views/features/orders/customer/checkout/?mode=direct';
+            return;
+        }
+        
+        // Otherwise, add to cart
         var requestBody = {
             productId: productId,
             quantity: String(quantity)
@@ -678,11 +701,6 @@
             if (data.success) {
                 if (window.loadCartCount) {
                     window.loadCartCount();
-                }
-                
-                if (isBuyNow) {
-                    window.location.href = '/JCart/views/features/cart/';
-                    return;
                 }
                 
                 if (window.cartModal) {

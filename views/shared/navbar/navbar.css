@@ -190,11 +190,6 @@ body {
     user-select: none;
 }
 
-/* Cart Link */
-.navbar .cart-link {
-    margin-right: 1rem;
-}
-
 .navbar .cart-link a {
     padding: 24px 14px;
     font-size: 15px;

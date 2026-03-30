@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<!-- Customer Transactions Page - View payment and refund history with filters -->
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+    <meta name="description" content="JCart Transactions - View your payment and refund history">
+    <meta name="keywords" content="transactions, payments, refunds, JCart">
+    <meta name="author" content="JCart">
+    <title>My Transactions - JCart</title>
+    <link rel="icon" type="image/svg+xml" href="/JCart/views/assets/favicon.svg">
+    <link rel="stylesheet" href="/JCart/views/styles.css">
+    <link rel="stylesheet" href="/JCart/views/shared/navbar/navbar.css">
+    <link rel="stylesheet" href="/JCart/views/shared/pagination/pagination.css">
+    <link rel="stylesheet" href="styles.css">
+    <script src="/JCart/views/utils/toast.js" defer></script>
+    <script src="/JCart/views/utils/auth.js" defer></script>
+    <script src="/JCart/views/shared/pagination/pagination.js" defer></script>
+</head>
+<body>
+    <header id="navbar">
+        <!-- Navigation will be loaded here -->
+    </header>
+
+    <main class="transactions-main">
+        <div class="container">
+            <!-- Breadcrumb -->
+            <nav class="breadcrumb" aria-label="Breadcrumb">
+                <ol>
+                    <li><a href="/JCart/views/index.html">Home</a></li>
+                    <li aria-current="page">My Transactions</li>
+                </ol>
+            </nav>
+
+            <!-- Page Header -->
+            <div class="page-header">
+                <h1 class="page-title">My Transactions</h1>
+                <p class="page-subtitle">View your payment and refund history</p>
+            </div>
+
+            <!-- Filters Section -->
+            <div class="filters-section">
+                <div class="filters-container">
+                    <div class="filter-group">
+                        <label for="filterType">Type</label>
+                        <select id="filterType" name="type">
+                            <option value="">All Types</option>
+                            <option value="PAYMENT">Payment</option>
+                            <option value="REFUND">Refund</option>
+                        </select>
+                    </div>
+
+                    <div class="filter-group">
+                        <label for="filterStatus">Status</label>
+                        <select id="filterStatus" name="status">
+                            <option value="">All Status</option>
+                            <option value="PENDING">Pending</option>
+                            <option value="PAID">Paid</option>
+                            <option value="FAILED">Failed</option>
+                            <option value="REFUNDED">Refunded</option>
+                            <option value="REJECTED">Rejected</option>
+                        </select>
+                    </div>
+
+                    <div class="filter-group">
+                        <label for="filterFromDate">From Date</label>
+                        <input type="date" id="filterFromDate" name="fromDate">
+                    </div>
+
+                    <div class="filter-group">
+                        <label for="filterToDate">To Date</label>
+                        <input type="date" id="filterToDate" name="toDate">
+                    </div>
+
+                    <div class="filter-group">
+                        <label for="sortBy">Sort By</label>
+                        <select id="sortBy" name="sortBy">
+                            <option value="created_at" selected>Date (Newest)</option>
+                            <option value="created_at_asc">Date (Oldest)</option>
+                            <option value="amount">Amount (High to Low)</option>
+                            <option value="amount_asc">Amount (Low to High)</option>
+                        </select>
+                    </div>
+
+                    <div class="filter-actions">
+                        <button type="button" class="btn btn-secondary btn-small" id="clearFiltersBtn">
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <line x1="18" y1="6" x2="6" y2="18"/>
+                                <line x1="6" y1="6" x2="18" y2="18"/>
+                            </svg>
+                            Clear
+                        </button>
+                        <button type="button" class="btn btn-primary btn-small" id="applyFiltersBtn">
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/>
+                            </svg>
+                            Apply Filters
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Mobile Filter Toggle -->
+                <button type="button" class="btn btn-secondary mobile-filter-toggle" id="mobileFilterToggle">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/>
+                    </svg>
+                    Filters
+                </button>
+            </div>
+
+            <!-- Loading State -->
+            <div id="loadingState" class="state-message">
+                <div class="loading-spinner"></div>
+                <p>Loading your transactions...</p>
+            </div>
+
+            <!-- Error State -->
+            <div id="errorState" class="state-message error-state hidden">
+                <div class="error-icon">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="12" cy="12" r="10"/>
+                        <line x1="15" y1="9" x2="9" y2="15"/>
+                        <line x1="9" y1="9" x2="15" y2="15"/>
+                    </svg>
+                </div>
+                <h3>Unable to Load Transactions</h3>
+                <p id="errorMessage">Something went wrong. Please try again.</p>
+                <button type="button" class="btn btn-primary" id="retryBtn">Try Again</button>
+            </div>
+
+            <!-- Empty State -->
+            <div id="emptyState" class="state-message empty-state hidden">
+                <div class="empty-icon">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <rect x="1" y="4" width="22" height="16" rx="2" ry="2"/>
+                        <line x1="1" y1="10" x2="23" y2="10"/>
+                    </svg>
+                </div>
+                <h3>No Transactions Found</h3>
+                <p id="emptyMessage">You don't have any transactions yet. Place an order to see your transactions here.</p>
+                <a href="/JCart/views/features/products/customer/search/" class="btn btn-primary">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="11" cy="11" r="8"/>
+                        <path d="m21 21-4.35-4.35"/>
+                    </svg>
+                    Browse Products
+                </a>
+            </div>
+
+            <!-- Transactions Content -->
+            <div id="transactionsContent" class="transactions-content hidden">
+                <!-- Transactions Table -->
+                <div class="transactions-table-wrapper">
+                    <table class="transactions-table">
+                        <thead>
+                            <tr>
+                                <th>Transaction ID</th>
+                                <th>Order ID</th>
+                                <th>Type</th>
+                                <th>Method</th>
+                                <th>Amount</th>
+                                <th>Status</th>
+                                <th>Date</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="transactionsTableBody">
+                            <!-- Transactions will be rendered here -->
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Mobile Transactions Cards -->
+                <div class="transactions-cards" id="transactionsCards">
+                    <!-- Mobile transaction cards will be rendered here -->
+                </div>
+
+                <!-- Pagination -->
+                <div class="pagination-wrapper" id="paginationWrapper">
+                    <div class="pagination-container" id="paginationContainer">
+                        <button type="button" class="pagination-btn" id="paginationPrev" aria-label="Previous page">
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+                        </button>
+                        <div class="pagination-pages" id="paginationPages"></div>
+                        <button type="button" class="pagination-btn" id="paginationNext" aria-label="Next page">
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+                        </button>
+                        <div class="pagination-info">
+                            <span id="paginationSummary">Showing 0 of 0</span>
+                            <select id="paginationSize" aria-label="Items per page">
+                                <option value="10">10 per page</option>
+                                <option value="15" selected>15 per page</option>
+                                <option value="30">30 per page</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Transaction Detail Modal -->
+    <div class="modal-overlay hidden" id="transactionModal">
+        <div class="modal-container">
+            <div class="modal-header">
+                <h2 class="modal-title">Transaction Details</h2>
+                <button type="button" class="modal-close" id="closeModalBtn" aria-label="Close modal">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <line x1="18" y1="6" x2="6" y2="18"/>
+                        <line x1="6" y1="6" x2="18" y2="18"/>
+                    </svg>
+                </button>
+            </div>
+            <div class="modal-body" id="modalBody">
+                <!-- Transaction details will be rendered here -->
+            </div>
+            <div class="modal-footer">
+                <a href="#" class="btn btn-secondary" id="viewOrderBtn">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>
+                    </svg>
+                    View Order
+                </a>
+                <button type="button" class="btn btn-primary" id="closeModalFooterBtn">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="/JCart/views/shared/navbar/navbar.js"></script>
+    <script src="script.js"></script>
+</body>
+</html>

@@ -37,6 +37,7 @@ public class OrderService {
     private final AddressDAO addressDAO = new AddressDAO();
     private final AddressService addressService = new AddressService();
     private final PaymentGateway paymentGateway = new PaymentGateway();
+    private final CustomerDAO customerDAO = new CustomerDAO();
     
     // Order status transition rules
     private static final Map<String, List<String>> ALLOWED_ORDER_STATUS_TRANSITIONS = new HashMap<>();
@@ -51,7 +52,9 @@ public class OrderService {
         ALLOWED_ORDER_STATUS_TRANSITIONS.put("CANCELLED", new ArrayList<>());
 
         ALLOWED_PAYMENT_STATUS_TRANSITIONS.put("PENDING", Arrays.asList("PAID", "FAILED"));
-        ALLOWED_PAYMENT_STATUS_TRANSITIONS.put("PAID", Arrays.asList("REFUNDED"));
+        ALLOWED_PAYMENT_STATUS_TRANSITIONS.put("PAID", Arrays.asList("REFUNDING"));
+        ALLOWED_PAYMENT_STATUS_TRANSITIONS.put("REFUNDING", Arrays.asList("REFUNDED", "REJECTED"));
+        ALLOWED_PAYMENT_STATUS_TRANSITIONS.put("REJECTED", new ArrayList<>());
         ALLOWED_PAYMENT_STATUS_TRANSITIONS.put("FAILED", new ArrayList<>());
         ALLOWED_PAYMENT_STATUS_TRANSITIONS.put("REFUNDED", new ArrayList<>());
     }
@@ -364,7 +367,13 @@ public class OrderService {
                     orderItems.add(orderItem);
                 }
                 
-                order.setTotalAmount(totalAmount);
+                BigDecimal tax = totalAmount.multiply(new BigDecimal("0.08"));
+                BigDecimal shipping = totalAmount.compareTo(new BigDecimal("500")) > 0 
+                    ? BigDecimal.ZERO 
+                    : (totalAmount.compareTo(BigDecimal.ZERO) > 0 ? new BigDecimal("49") : BigDecimal.ZERO);
+                
+                BigDecimal finalTotal = totalAmount.add(tax).add(shipping);
+                order.setTotalAmount(finalTotal);
                 orderDAO.insert(order);
                 
                 for (OrderItem orderItem : orderItems) {
@@ -372,7 +381,7 @@ public class OrderService {
                 }
                 orderItemDAO.insertBatch(orderItems);
                 
-                Transaction payment = paymentGateway.initiatePayment(order, paymentMethod);
+                Transaction payment = paymentGateway.initiatePayment(order, paymentMethod, customerId);
                 payment.setOrderId(order.getOrderId());
                 transactionDAO.insert(payment);
                        
@@ -380,7 +389,7 @@ public class OrderService {
                 payment = paymentGateway.processPayment(payment, paymentSuccess);
                 transactionDAO.updateStatus(payment.getTransactionId(), payment.getTransactionStatus(), null);
                     
-                if ("COMPLETED".equals(payment.getTransactionStatus())) {
+                if ("PAID".equals(payment.getTransactionStatus())) {
                     order.setOrderStatus("PROCESSING");
                     order.setPaymentStatus("PAID");
                     int updated = orderDAO.updateStatus(order.getOrderId(), "PROCESSING", "PAID");
@@ -400,7 +409,8 @@ public class OrderService {
                 
                 conn.commit();
                 
-                return buildOrderResponse(order, orderItems, payment);
+                List<Transaction> payments = transactionDAO.getAllByOrderId(order.getOrderId());
+                return buildOrderResponse(order, orderItems, payments);
                 
             } catch (Exception e) {
                 e.printStackTrace();
@@ -459,9 +469,9 @@ public class OrderService {
         }
         
         List<OrderItem> items = orderItemDAO.getByOrderId(orderId);
-        Transaction payment = transactionDAO.getByOrderIdAndType(orderId, "PAYMENT");
+        List<Transaction> payments = transactionDAO.getAllByOrderId(orderId);
         
-        return buildOrderResponse(order, items, payment);
+        return buildOrderResponse(order, items, payments);
     }
     
     /**
@@ -483,8 +493,8 @@ public class OrderService {
         List<OrderResponse> orderResponses = new ArrayList<>();
         for (Order order : orders) {
             List<OrderItem> items = orderItemDAO.getByOrderId(order.getOrderId());
-            Transaction payment = transactionDAO.getByOrderIdAndType(order.getOrderId(), "PAYMENT");
-            orderResponses.add(buildOrderResponse(order, items, payment));
+            List<Transaction> payments = transactionDAO.getAllByOrderId(order.getOrderId());
+            orderResponses.add(buildOrderResponse(order, items, payments));
         }
         
         Map<String, Object> result = new HashMap<>();
@@ -532,17 +542,24 @@ public class OrderService {
             conn.setAutoCommit(false);
             
             try {
-                orderDAO.updateStatus(orderId, "CANCELLED", "REFUNDED");
+                orderDAO.updateStatus(orderId, "CANCELLED", "REFUNDING");
             
                 productDAO.restoreStockForOrder(orderId);
                 
-                Transaction payment = transactionDAO.getByOrderIdAndType(orderId, "PAYMENT");
+                List<Transaction> payments = transactionDAO.getAllByOrderId(orderId);
                 
-                Transaction refund = paymentGateway.processRefund(payment, "Cancelled by customer", null);
-                refund.setTransactionStatus("PENDING");
-                transactionDAO.insert(refund);
+                Transaction payment = null;
+                for (Transaction txn : payments) {
+                    if ("PAYMENT".equals(txn.getTransactionType())) {
+                        payment = txn;
+                        break;
+                    }
+                }
                 
-                transactionDAO.updateStatus(payment.getTransactionId(), "REFUNDED", null);
+                if (payment != null) {
+                    Transaction refund = paymentGateway.initiateRefund(payment, "Cancelled by customer");
+                    transactionDAO.insert(refund);
+                }
                 
                 conn.commit();
                 
@@ -571,8 +588,8 @@ public class OrderService {
         List<OrderResponse> orderResponses = new ArrayList<>();
         for (Order order : orders) {
             List<OrderItem> items = orderItemDAO.getByOrderId(order.getOrderId());
-            Transaction payment = transactionDAO.getByOrderIdAndType(order.getOrderId(), "PAYMENT");
-            orderResponses.add(buildOrderResponse(order, items, payment));
+            List<Transaction> payments = transactionDAO.getAllByOrderId(order.getOrderId());
+            orderResponses.add(buildOrderResponse(order, items, payments));
         }
         
         Map<String, Object> result = new HashMap<>();
@@ -681,7 +698,7 @@ public class OrderService {
      * @param payment the payment transaction
      * @return OrderResponse object
      */
-    private OrderResponse buildOrderResponse(Order order, List<OrderItem> items, Transaction payment) {
+    private OrderResponse buildOrderResponse(Order order, List<OrderItem> items, List<Transaction> payments) {
         OrderResponse response = new OrderResponse();
         response.setOrderId(order.getOrderId());
         response.setInvoiceNumber(order.getInvoiceNumber());
@@ -692,6 +709,16 @@ public class OrderService {
         
         Map<String, String> customer = new HashMap<>();
         customer.put("customerId", order.getCustomerId());
+        try {
+            Customer customerData = customerDAO.getById(order.getCustomerId());
+            if (customerData != null) {
+                customer.put("name", customerData.getUsername());
+                customer.put("email", customerData.getEmail());
+                customer.put("phone", customerData.getPhone());
+            }
+        } catch (Exception e) {
+            System.err.println("Failed to fetch customer details: " + e.getMessage());
+        }
         response.setCustomer(customer);
         
         Map<String, Object> shippingAddress = new HashMap<>();
@@ -705,7 +732,6 @@ public class OrderService {
         
         List<Map<String, Object>> itemList = new ArrayList<>();
         BigDecimal subtotal = BigDecimal.ZERO;
-        BigDecimal taxTotal = BigDecimal.ZERO;
         
         for (OrderItem item : items) {
             Map<String, Object> itemData = new HashMap<>();
@@ -719,26 +745,51 @@ public class OrderService {
             itemList.add(itemData);
             
             subtotal = subtotal.add(item.getSubtotal());
-            BigDecimal taxAmount = item.getSubtotal().multiply(item.getTaxRate()).divide(BigDecimal.valueOf(100));
-            taxTotal = taxTotal.add(taxAmount);
         }
         
         response.setItems(itemList);
         response.setSubtotal(subtotal);
-        response.setTax(taxTotal);
-        response.setShipping(BigDecimal.ZERO);
-        response.setDiscount(BigDecimal.ZERO);
+        
+        BigDecimal tax = subtotal.multiply(new BigDecimal("0.08"));
+        response.setTax(tax);
+        
+        BigDecimal shipping = subtotal.compareTo(new BigDecimal("500")) > 0 
+            ? BigDecimal.ZERO 
+            : (subtotal.compareTo(BigDecimal.ZERO) > 0 ? new BigDecimal("49") : BigDecimal.ZERO);
+        response.setShipping(shipping);
+        
+        BigDecimal totalDiscount = BigDecimal.ZERO;
+        for (OrderItem item : items) {
+            BigDecimal itemDiscount = item.getUnitPrice()
+                .multiply(BigDecimal.valueOf(item.getQuantity()))
+                .multiply(item.getDiscount())
+                .divide(BigDecimal.valueOf(100), 2, BigDecimal.ROUND_HALF_UP);
+            totalDiscount = totalDiscount.add(itemDiscount);
+        }
+        response.setDiscount(totalDiscount);
+        
         response.setTotal(order.getTotalAmount());
         
-        if (payment != null) {
-            Map<String, Object> paymentData = new HashMap<>();
-            paymentData.put("transactionId", payment.getTransactionId());
-            paymentData.put("method", payment.getTransactionMethod());
-            paymentData.put("status", payment.getTransactionStatus());
-            paymentData.put("reference", payment.getTransactionReference());
-            paymentData.put("processedAt", payment.getProcessedAt());
-            response.setPayment(paymentData);
+        List<Map<String, Object>> paymentsList = new ArrayList<>();
+        if (payments != null && !payments.isEmpty()) {
+            for (Transaction payment : payments) {
+                Map<String, Object> paymentData = new HashMap<>();
+                paymentData.put("transactionId", payment.getTransactionId());
+                paymentData.put("orderId", payment.getOrderId());
+                paymentData.put("transactionType", payment.getTransactionType());
+                paymentData.put("paymentMethod", payment.getTransactionMethod());
+                paymentData.put("status", payment.getTransactionStatus());
+                paymentData.put("amount", payment.getAmount());
+                paymentData.put("transactionDate", payment.getCreatedAt());
+                paymentData.put("createdAt", payment.getCreatedAt());
+                paymentData.put("processedAt", payment.getProcessedAt());
+                paymentData.put("verifiedAt", payment.getVerifiedAt());
+                paymentData.put("verifiedBy", payment.getVerifiedBy());
+                paymentData.put("refundReason", payment.getRefundReason());
+                paymentsList.add(paymentData);
+            }
         }
+        response.setPayments(paymentsList);
         
         return response;
     }

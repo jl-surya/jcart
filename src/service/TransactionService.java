@@ -130,22 +130,29 @@ public class TransactionService {
         Order order = orderDAO.getById(refundTransaction.getOrderId());
         
         if ("APPROVE".equalsIgnoreCase(action)) {
-            refundTransaction.setTransactionStatus("COMPLETED");
-            transactionDAO.updateStatus(transactionId, "COMPLETED", adminId);
+            paymentGateway.processRefund(refundTransaction, adminId);
+            transactionDAO.updateStatus(transactionId, "PAID", adminId);
             
             orderDAO.updateStatus(order.getOrderId(), order.getOrderStatus(), "REFUNDED");
             
-            Transaction paymentTransaction = transactionDAO.getByOrderIdAndType(order.getOrderId(), "PAYMENT");
-            if (paymentTransaction != null && !"REFUNDED".equals(paymentTransaction.getTransactionStatus())) {
-                transactionDAO.updateStatus(paymentTransaction.getTransactionId(), "REFUNDED", adminId);
+            List<Transaction> payments = transactionDAO.getAllByOrderId(order.getOrderId());
+            for (Transaction payment : payments) {
+                if ("PAYMENT".equals(payment.getTransactionType()) && 
+                    !"REFUNDED".equals(payment.getTransactionStatus())) {
+                    transactionDAO.updateStatus(payment.getTransactionId(), "REFUNDED", adminId);
+                    break;
+                }
             }
             
         } else if ("REJECT".equalsIgnoreCase(action)) {
-            refundTransaction.setTransactionStatus("REJECTED");
+            paymentGateway.rejectRefund(refundTransaction, reason, adminId);
             if (reason != null) {
                 transactionDAO.updateRefundReason(transactionId, reason);
             }
             transactionDAO.updateStatus(transactionId, "REJECTED", adminId);
+            
+            orderDAO.updateStatus(order.getOrderId(), order.getOrderStatus(), "REJECTED");
+            
         } else {
             throw new IllegalArgumentException("Invalid action. Use APPROVE or REJECT");
         }

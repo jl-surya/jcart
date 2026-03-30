@@ -29,7 +29,7 @@ public class TransactionDAO {
     public void insert(Transaction transaction) throws Exception {
         String sql = "INSERT INTO transactions (order_id, transaction_type, transaction_method, transaction_status, " +
                      "amount, transaction_reference, refund_reason, processed_by_type, processed_by, processed_at, " +
-                     "approved_by, approved_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING transaction_id";
+                     "verified_by, verified_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING transaction_id";
         
         try (Connection conn = DBUtil.getConnection()) {
             conn.setAutoCommit(false);
@@ -45,8 +45,8 @@ public class TransactionDAO {
                 ps.setString(8, transaction.getProcessedByType());
                 ps.setString(9, transaction.getProcessedBy());
                 ps.setTimestamp(10, transaction.getProcessedAt());
-                ps.setString(11, transaction.getApprovedBy());
-                ps.setTimestamp(12, transaction.getApprovedAt());
+                ps.setString(11, transaction.getVerifiedBy());
+                ps.setTimestamp(12, transaction.getVerifiedAt());
                 
                 try (ResultSet rs = ps.executeQuery()) {
                     if (rs.next()) {
@@ -71,7 +71,7 @@ public class TransactionDAO {
     public Transaction getById(Long transactionId) throws Exception {
         String sql = "SELECT transaction_id, order_id, transaction_type, transaction_method, transaction_status, " +
                      "amount, transaction_reference, refund_reason, processed_by_type, processed_by, processed_at, " +
-                     "approved_by, approved_at, created_at FROM transactions WHERE transaction_id = ?";
+                     "verified_by, verified_at, created_at FROM transactions WHERE transaction_id = ?";
         
         try (Connection conn = DBUtil.getConnection();
              PreparedStatement ps = conn.prepareStatement(sql)) {
@@ -86,29 +86,29 @@ public class TransactionDAO {
     }
     
     /**
-     * Retrieves transaction by order ID and type.
+     * Retrieves all transactions for a specific order.
      *
      * @param orderId the order ID
-     * @param type the transaction type (PAYMENT, REFUND)
-     * @return Transaction object if found, null otherwise
+     * @return list of Transaction objects
      * @throws Exception if database operation fails
      */
-    public Transaction getByOrderIdAndType(Long orderId, String type) throws Exception {
+    public List<Transaction> getAllByOrderId(Long orderId) throws Exception {
         String sql = "SELECT transaction_id, order_id, transaction_type, transaction_method, transaction_status, " +
                      "amount, transaction_reference, refund_reason, processed_by_type, processed_by, processed_at, " +
-                     "approved_by, approved_at, created_at FROM transactions WHERE order_id = ? AND transaction_type = ?";
+                     "verified_by, verified_at, created_at FROM transactions WHERE order_id = ? ORDER BY created_at DESC";
+        
+        List<Transaction> transactions = new ArrayList<>();
         
         try (Connection conn = DBUtil.getConnection();
              PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setLong(1, orderId);
-            ps.setString(2, type);
             try (ResultSet rs = ps.executeQuery()) {
-                if (rs.next()) {
-                    return mapRow(rs);
+                while (rs.next()) {
+                    transactions.add(mapRow(rs));
                 }
             }
         }
-        return null;
+        return transactions;
     }
     
     /**
@@ -125,7 +125,7 @@ public class TransactionDAO {
         StringBuilder sql = new StringBuilder();
         sql.append("SELECT t.transaction_id, t.order_id, t.transaction_type, t.transaction_method, t.transaction_status, ")
            .append("t.amount, t.transaction_reference, t.refund_reason, t.processed_by_type, t.processed_by, ")
-           .append("t.processed_at, t.approved_by, t.approved_at, t.created_at ")
+           .append("t.processed_at, t.verified_by, t.verified_at, t.created_at ")
            .append("FROM transactions t JOIN orders o ON t.order_id = o.order_id ")
            .append("WHERE o.customer_id = ? ");
         
@@ -188,7 +188,7 @@ public class TransactionDAO {
         StringBuilder sql = new StringBuilder();
         sql.append("SELECT transaction_id, order_id, transaction_type, transaction_method, transaction_status, ")
            .append("amount, transaction_reference, refund_reason, processed_by_type, processed_by, ")
-           .append("processed_at, approved_by, approved_at, created_at FROM transactions WHERE 1=1 ");
+           .append("processed_at, verified_by, verified_at, created_at FROM transactions WHERE 1=1 ");
         
         List<Object> params = new ArrayList<>();
         
@@ -357,18 +357,18 @@ public class TransactionDAO {
      *
      * @param transactionId the transaction ID
      * @param status the new status
-     * @param approvedBy the admin who approved (null for non-approval statuses)
+     * @param verifiedBy the admin who verified (null for non-verification statuses)
      * @throws Exception if database operation fails
      */
-    public void updateStatus(Long transactionId, String status, String approvedBy) throws Exception {
+    public void updateStatus(Long transactionId, String status, String verifiedBy) throws Exception {
         String sql;
-        if (approvedBy != null) {
-            sql = "UPDATE transactions SET transaction_status = ?, approved_by = ?, approved_at = CURRENT_TIMESTAMP " +
+        if (verifiedBy != null) {
+            sql = "UPDATE transactions SET transaction_status = ?, verified_by = ?, verified_at = CURRENT_TIMESTAMP " +
                 "WHERE transaction_id = ?";
             try (Connection conn = DBUtil.getConnection();
                 PreparedStatement ps = conn.prepareStatement(sql)) {
                 ps.setString(1, status);
-                ps.setString(2, approvedBy);
+                ps.setString(2, verifiedBy);
                 ps.setLong(3, transactionId);
                 ps.executeUpdate();
             }
@@ -441,8 +441,8 @@ public class TransactionDAO {
         transaction.setProcessedByType(rs.getString("processed_by_type"));
         transaction.setProcessedBy(rs.getString("processed_by"));
         transaction.setProcessedAt(rs.getTimestamp("processed_at"));
-        transaction.setApprovedBy(rs.getString("approved_by"));
-        transaction.setApprovedAt(rs.getTimestamp("approved_at"));
+        transaction.setVerifiedBy(rs.getString("verified_by"));
+        transaction.setVerifiedAt(rs.getTimestamp("verified_at"));
         transaction.setCreatedAt(rs.getTimestamp("created_at"));
         return transaction;
     }

@@ -19,17 +19,19 @@ public class PaymentGateway {
      *
      * @param order the order to pay for
      * @param paymentMethod the payment method
+     * @param customerId the customer ID who initiated payment
      * @return initiated Transaction object
      */
-    public Transaction initiatePayment(Order order, String paymentMethod) {
+    public Transaction initiatePayment(Order order, String paymentMethod, String customerId) {
         Transaction transaction = new Transaction();
         transaction.setOrderId(order.getOrderId());
         transaction.setTransactionType("PAYMENT");
         transaction.setTransactionMethod(paymentMethod);
         transaction.setAmount(order.getTotalAmount());
-        transaction.setTransactionStatus("INITIATED");
+        transaction.setTransactionStatus("PENDING");
         transaction.setTransactionReference("TXN" + System.currentTimeMillis() + order.getOrderId());
-        transaction.setProcessedByType("SYSTEM");
+        transaction.setProcessedByType("CUSTOMER");
+        transaction.setProcessedBy(customerId);
         
         return transaction;
     }
@@ -43,7 +45,7 @@ public class PaymentGateway {
      */
     public Transaction processPayment(Transaction transaction, boolean success) {
         if (success) {
-            transaction.setTransactionStatus("COMPLETED");
+            transaction.setTransactionStatus("PAID");
             transaction.setProcessedAt(new Timestamp(System.currentTimeMillis()));
         } else {
             transaction.setTransactionStatus("FAILED");
@@ -53,31 +55,62 @@ public class PaymentGateway {
     }
     
     /**
-     * Processes a refund for a payment transaction.
+     * Initiates a refund transaction for a payment.
+     * Creates a pending refund that requires approval by an admin.
+     * Called by superadmin (A0000001) when customer requests cancellation.
      *
      * @param originalPayment the original payment transaction
-     * @param reason reason for refund
-     * @param adminId admin ID who approved the refund (null for system-initiated)
-     * @return refund Transaction object
+     * @param reason reason for refund request
+     * @return initiated refund Transaction object with PENDING status
      */
-    public Transaction processRefund(Transaction originalPayment, String reason, String adminId) {
+    public Transaction initiateRefund(Transaction originalPayment, String reason) {
         Transaction refund = new Transaction();
         refund.setOrderId(originalPayment.getOrderId());
         refund.setTransactionType("REFUND");
         refund.setTransactionMethod(originalPayment.getTransactionMethod());
         refund.setAmount(originalPayment.getAmount());
-        refund.setTransactionStatus("COMPLETED");
+        refund.setTransactionStatus("PENDING");
         refund.setTransactionReference("REF" + System.currentTimeMillis() + originalPayment.getOrderId());
         refund.setRefundReason(reason);
-        refund.setProcessedByType(adminId != null ? "ADMIN" : "SYSTEM");
-        refund.setProcessedBy(adminId);
-        refund.setProcessedAt(new Timestamp(System.currentTimeMillis()));
-        
-        if (adminId != null) {
-            refund.setApprovedBy(adminId);
-            refund.setApprovedAt(new Timestamp(System.currentTimeMillis()));
-        }
+        refund.setProcessedByType("ADMIN");
+        refund.setProcessedBy("A0000001");
         
         return refund;
+    }
+    
+    /**
+     * Processes (approves) a refund transaction.
+     * Called by an admin with transaction permission to complete the refund.
+     *
+     * @param refundTransaction the pending refund transaction
+     * @param adminId admin ID who processes/approves the refund
+     * @return processed refund Transaction object with REFUNDED status
+     */
+    public Transaction processRefund(Transaction refundTransaction, String adminId) {
+        refundTransaction.setTransactionStatus("REFUNDED");
+        refundTransaction.setProcessedAt(new Timestamp(System.currentTimeMillis()));
+        refundTransaction.setVerifiedBy(adminId);
+        refundTransaction.setVerifiedAt(new Timestamp(System.currentTimeMillis()));
+        
+        return refundTransaction;
+    }
+    
+    /**
+     * Rejects a refund transaction.
+     * Called by an admin with transaction permission to reject the refund request.
+     *
+     * @param refundTransaction the pending refund transaction
+     * @param reason rejection reason
+     * @param adminId admin ID who rejects the refund
+     * @return rejected refund Transaction object with REJECTED status
+     */
+    public Transaction rejectRefund(Transaction refundTransaction, String reason, String adminId) {
+        refundTransaction.setTransactionStatus("REJECTED");
+        refundTransaction.setRefundReason(reason);
+        refundTransaction.setProcessedAt(new Timestamp(System.currentTimeMillis()));
+        refundTransaction.setVerifiedBy(adminId);
+        refundTransaction.setVerifiedAt(new Timestamp(System.currentTimeMillis()));
+        
+        return refundTransaction;
     }
 }

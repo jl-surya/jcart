@@ -385,7 +385,7 @@
     }
 
     /**
-     * Handle Buy Now
+     * Handle Buy Now - Direct checkout without adding to cart
      */
     function handleBuyNow() {
         if (!state.product || state.isLoading) return;
@@ -399,38 +399,20 @@
             return;
         }
 
-        state.isLoading = true;
-        setButtonLoading(elements.buyNowBtn, true);
-
-        fetch('/JCart/customer/cart', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            credentials: 'include',
-            body: JSON.stringify({
-                productId: state.product.productId,
-                quantity: state.quantity
-            })
-        })
-        .then(function (response) {
-            if (!response.ok) {
-                return response.json().then(function (data) {
-                    throw new Error(data.message || 'Failed to proceed');
-                });
-            }
-            return response.json();
-        })
-        .then(function () {
-            if (window.loadCartCount) {
-                window.loadCartCount();
-            }
-            window.location.href = '/JCart/views/features/cart/';
-        })
-        .catch(function (error) {
-            console.error('Error with buy now:', error);
-            window.showToast(error.message || 'Failed to proceed', 'error');
-            state.isLoading = false;
-            setButtonLoading(elements.buyNowBtn, false);
-        });
+        // Store direct buy product details in sessionStorage
+        var directBuyData = {
+            productId: state.product.productId,
+            name: state.product.productName,
+            price: state.product.price,
+            discount: state.product.discount || 0,
+            imageUrl: state.product.imageUrl,
+            quantity: state.quantity
+        };
+        
+        sessionStorage.setItem('directBuyProduct', JSON.stringify(directBuyData));
+        
+        // Redirect to checkout
+        window.location.href = '/JCart/views/features/orders/customer/checkout/?mode=direct';
     }
 
     /**

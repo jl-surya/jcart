@@ -251,9 +251,18 @@
     color: var(--primary-color);
 }
 
+.item-price-original {
+    text-decoration: line-through;
+    color: #999;
+    font-size: 0.9rem;
+    margin-right: 0.5rem;
+}
+
 .item-discount {
     color: var(--success-color);
     font-weight: 500;
+    font-size: 0.875rem;
+    margin-left: 0.5rem;
 }
 
 .item-stock {
@@ -392,6 +401,14 @@
     align-items: center;
     margin-bottom: 0.75rem;
     font-size: 0.95rem;
+}
+
+.summary-row.discount-row {
+    color: var(--success-color);
+}
+
+.summary-row.discount-row .discount-amount {
+    font-weight: 600;
 }
 
 .summary-row.total {

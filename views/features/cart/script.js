@@ -72,6 +72,8 @@
             itemCount: document.getElementById('itemCount'),
             summaryItemCount: document.getElementById('summaryItemCount'),
             subtotalAmount: document.getElementById('subtotalAmount'),
+            discountRow: document.getElementById('discountRow'),
+            discountAmount: document.getElementById('discountAmount'),
             taxAmount: document.getElementById('taxAmount'),
             shippingAmount: document.getElementById('shippingAmount'),
             totalAmount: document.getElementById('totalAmount')
@@ -167,31 +169,33 @@
      * Calculate cart totals using subtotals from API
      */
     function calculateTotals() {
-        var subtotal = 0;
+        var originalSubtotal = 0;
+        var totalDiscount = 0;
         
         state.cartItems.forEach(function (item) {
-            // Use subtotal from API which already has discount applied
-            var itemSubtotal = parseFloat(item.subtotal || 0);
-            if (itemSubtotal > 0) {
-                subtotal += itemSubtotal;
-            } else {
-                // Fallback: calculate if subtotal not provided
-                var itemPrice = parseFloat(item.price || 0);
-                var itemDiscount = parseFloat(item.discount || 0);
-                var quantity = parseInt(item.quantity || 0);
-                
-                var discountAmount = itemPrice * (itemDiscount / 100);
-                var finalPrice = itemPrice - discountAmount;
-                subtotal += finalPrice * quantity;
-            }
+            var itemPrice = parseFloat(item.price || 0);
+            var itemDiscount = parseFloat(item.discount || 0);
+            var quantity = parseInt(item.quantity || 0);
+            
+            // Calculate original subtotal (before discount)
+            var itemOriginalTotal = itemPrice * quantity;
+            originalSubtotal += itemOriginalTotal;
+            
+            // Calculate discount amount
+            var discountAmount = itemPrice * quantity * (itemDiscount / 100);
+            totalDiscount += discountAmount;
         });
 
-        var tax = subtotal * 0.08; // 8% tax
-        var shipping = subtotal > 100 ? 0 : (subtotal > 0 ? 10 : 0); // Free shipping over $100
-        var total = subtotal + tax + shipping;
+        // Discounted subtotal for tax/shipping calculation
+        var discountedSubtotal = originalSubtotal - totalDiscount;
+        
+        var tax = discountedSubtotal * 0.08; // 8% tax
+        var shipping = discountedSubtotal > 100 ? 0 : (discountedSubtotal > 0 ? 10 : 0); // Free shipping over $100
+        var total = discountedSubtotal + tax + shipping;
 
         state.totals = {
-            subtotal: subtotal,
+            subtotal: originalSubtotal,  // Original subtotal before discount
+            discount: totalDiscount,
             tax: tax,
             shipping: shipping,
             total: total
@@ -271,8 +275,9 @@
                     escapeHtml(item.productName || 'Unknown Product') +
                 '</a>' +
                 '<div class="item-info">' +
+                    (hasDiscount ? '<span class="item-price-original">₹' + formatPrice(itemPrice) + '</span>' : '') +
                     '<span class="item-price">₹' + formatPrice(finalPrice) + '</span>' +
-                    (hasDiscount ? '<span class="item-discount">(' + itemDiscount + '% OFF)</span>' : '') +
+                    (hasDiscount ? '<span class="item-discount">' + itemDiscount + '% OFF</span>' : '') +
                 '</div>' +
                 '<div class="item-stock ' + stockClass + '">' +
                     '<span class="stock-icon">' + stockIcon + '</span>' +
@@ -480,8 +485,12 @@
      * Handle checkout process
      */
     function handleCheckout() {
-        window.showToast('Checkout functionality coming soon!', 'info');
-        // TODO: Implement order creation flow
+        if (!state.cartItems || state.cartItems.length === 0) {
+            window.showToast('Your cart is empty', 'warning');
+            return;
+        }
+        // Redirect to checkout page
+        window.location.href = '/JCart/views/features/orders/customer/checkout/';
     }
 
     /**
@@ -491,6 +500,17 @@
         if (elements.subtotalAmount) {
             elements.subtotalAmount.textContent = '₹' + formatPrice(state.totals.subtotal);
         }
+        
+        // Show/hide discount row
+        if (elements.discountRow && elements.discountAmount) {
+            if (state.totals.discount > 0) {
+                elements.discountRow.style.display = 'flex';
+                elements.discountAmount.textContent = '-₹' + formatPrice(state.totals.discount);
+            } else {
+                elements.discountRow.style.display = 'none';
+            }
+        }
+        
         if (elements.taxAmount) {
             elements.taxAmount.textContent = '₹' + formatPrice(state.totals.tax);
         }

@@ -329,6 +329,11 @@ views/
     │   ├── search/                             # Product search & listing page
     │   └── detail/                             # Individual product detail page
     ├── cart/                                   # Shopping cart management
+    ├── orders/customer/                        # Customer order management
+    │   ├── checkout/                           # Order checkout page (cart & direct buy)
+    │   ├── list/                               # Order history with filters & pagination
+    │   └── detail/                             # Individual order details & invoice
+    ├── transactions/customer/                  # Customer transaction history
     └── error/                                  # Error page handling
 ```
 
@@ -355,3 +360,10 @@ views/
    - Pagination System - Reusable component supporting 15/30/45 items per page with URL state
    - Real-time Cart Badge - Dynamic cart item count in navbar for authenticated users
    - Error Handling Pages - Custom 404 and error pages with navigation options
+
+3. Order & Transaction Management
+   - Checkout Page - Unified checkout for cart and direct buy with address selection
+   - Order History - Paginated list with filters (status, date range, sorting)
+   - Order Details - Complete order view with items, timeline, and invoice
+   - Order Cancellation - Cancel processing orders with automatic refund initiation
+   - Transaction History - Payment and refund tracking with status badges and detail modal

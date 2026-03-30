@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<!-- Customer Orders List Page - View order history with filters and pagination -->
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+    <meta name="description" content="JCart Orders - View your order history and track orders">
+    <meta name="keywords" content="orders, order history, tracking, JCart">
+    <meta name="author" content="JCart">
+    <title>My Orders - JCart</title>
+    <link rel="icon" type="image/svg+xml" href="/JCart/views/assets/favicon.svg">
+    <link rel="stylesheet" href="/JCart/views/styles.css">
+    <link rel="stylesheet" href="/JCart/views/shared/navbar/navbar.css">
+    <link rel="stylesheet" href="/JCart/views/shared/pagination/pagination.css">
+    <link rel="stylesheet" href="styles.css">
+    <script src="/JCart/views/utils/toast.js" defer></script>
+    <script src="/JCart/views/utils/auth.js" defer></script>
+    <script src="/JCart/views/shared/pagination/pagination.js" defer></script>
+</head>
+<body>
+    <header id="navbar">
+        <!-- Navigation will be loaded here -->
+    </header>
+
+    <main class="orders-main">
+        <div class="container">
+            <!-- Breadcrumb -->
+            <nav class="breadcrumb" aria-label="Breadcrumb">
+                <ol>
+                    <li><a href="/JCart/views/index.html">Home</a></li>
+                    <li aria-current="page">My Orders</li>
+                </ol>
+            </nav>
+
+            <!-- Page Header -->
+            <div class="page-header">
+                <h1 class="page-title">My Orders</h1>
+                <p class="page-subtitle">View and track your order history</p>
+            </div>
+
+            <!-- Filters Section -->
+            <div class="filters-section">
+                <div class="filters-container">
+                    <div class="filter-group">
+                        <label for="filterStatus">Status</label>
+                        <select id="filterStatus" name="status">
+                            <option value="">All Status</option>
+                            <option value="PENDING">Pending</option>
+                            <option value="CONFIRMED">Confirmed</option>
+                            <option value="PROCESSING">Processing</option>
+                            <option value="SHIPPED">Shipped</option>
+                            <option value="DELIVERED">Delivered</option>
+                            <option value="CANCELLED">Cancelled</option>
+                        </select>
+                    </div>
+
+                    <div class="filter-group">
+                        <label for="filterFromDate">From Date</label>
+                        <input type="date" id="filterFromDate" name="fromDate">
+                    </div>
+
+                    <div class="filter-group">
+                        <label for="filterToDate">To Date</label>
+                        <input type="date" id="filterToDate" name="toDate">
+                    </div>
+
+                    <div class="filter-group">
+                        <label for="filterMinAmount">Min Amount</label>
+                        <input type="number" id="filterMinAmount" name="minAmount" placeholder="₹0" min="0" step="0.01">
+                    </div>
+
+                    <div class="filter-group">
+                        <label for="filterMaxAmount">Max Amount</label>
+                        <input type="number" id="filterMaxAmount" name="maxAmount" placeholder="₹99999" min="0" step="0.01">
+                    </div>
+
+                    <div class="filter-group">
+                        <label for="sortBy">Sort By</label>
+                        <select id="sortBy" name="sortBy">
+                            <option value="created_at" selected>Date (Newest)</option>
+                            <option value="created_at_asc">Date (Oldest)</option>
+                            <option value="total">Amount (High to Low)</option>
+                            <option value="total_asc">Amount (Low to High)</option>
+                        </select>
+                    </div>
+
+                    <div class="filter-actions">
+                        <button type="button" class="btn btn-secondary btn-small" id="clearFiltersBtn">
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <line x1="18" y1="6" x2="6" y2="18"/>
+                                <line x1="6" y1="6" x2="18" y2="18"/>
+                            </svg>
+                            Clear
+                        </button>
+                        <button type="button" class="btn btn-primary btn-small" id="applyFiltersBtn">
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/>
+                            </svg>
+                            Apply Filters
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Mobile Filter Toggle -->
+                <button type="button" class="btn btn-secondary mobile-filter-toggle" id="mobileFilterToggle">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/>
+                    </svg>
+                    Filters
+                </button>
+            </div>
+
+            <!-- Loading State -->
+            <div id="loadingState" class="state-message">
+                <div class="loading-spinner"></div>
+                <p>Loading your orders...</p>
+            </div>
+
+            <!-- Error State -->
+            <div id="errorState" class="state-message error-state hidden">
+                <div class="error-icon">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="12" cy="12" r="10"/>
+                        <line x1="15" y1="9" x2="9" y2="15"/>
+                        <line x1="9" y1="9" x2="15" y2="15"/>
+                    </svg>
+                </div>
+                <h3>Unable to Load Orders</h3>
+                <p id="errorMessage">Something went wrong. Please try again.</p>
+                <button type="button" class="btn btn-primary" id="retryBtn">Try Again</button>
+            </div>
+
+            <!-- Empty State -->
+            <div id="emptyState" class="state-message empty-state hidden">
+                <div class="empty-icon">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>
+                        <polyline points="3.27 6.96 12 12.01 20.73 6.96"/>
+                        <line x1="12" y1="22.08" x2="12" y2="12"/>
+                    </svg>
+                </div>
+                <h3>No Orders Found</h3>
+                <p id="emptyMessage">You haven't placed any orders yet. Start shopping to see your orders here.</p>
+                <a href="/JCart/views/features/products/customer/search/" class="btn btn-primary">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="11" cy="11" r="8"/>
+                        <path d="m21 21-4.35-4.35"/>
+                    </svg>
+                    Browse Products
+                </a>
+            </div>
+
+            <!-- Orders Content -->
+            <div id="ordersContent" class="orders-content hidden">
+                <!-- Orders Table -->
+                <div class="orders-table-wrapper">
+                    <table class="orders-table">
+                        <thead>
+                            <tr>
+                                <th>Order ID</th>
+                                <th>Date</th>
+                                <th>Items</th>
+                                <th>Total</th>
+                                <th>Status</th>
+                                <th>Payment</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="ordersTableBody">
+                            <!-- Orders will be rendered here -->
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Mobile Orders Cards -->
+                <div class="orders-cards" id="ordersCards">
+                    <!-- Mobile order cards will be rendered here -->
+                </div>
+
+                <!-- Pagination -->
+                <div class="pagination-wrapper" id="paginationWrapper">
+                    <div class="pagination-container" id="paginationContainer">
+                        <button type="button" class="pagination-btn" id="paginationPrev" aria-label="Previous page">
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+                        </button>
+                        <div class="pagination-pages" id="paginationPages"></div>
+                        <button type="button" class="pagination-btn" id="paginationNext" aria-label="Next page">
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+                        </button>
+                        <div class="pagination-info">
+                            <span id="paginationSummary">Showing 0 of 0</span>
+                            <select id="paginationSize" aria-label="Items per page">
+                                <option value="10">10 per page</option>
+                                <option value="15" selected>15 per page</option>
+                                <option value="30">30 per page</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Scripts -->
+    <script src="/JCart/views/shared/navbar/navbar.js"></script>
+    <script src="script.js"></script>
+</body>
+</html>
