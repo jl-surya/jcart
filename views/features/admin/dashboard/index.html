@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<!-- Admin Dashboard - Main landing page for administrators -->
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+    <meta name="description" content="JCart Admin Dashboard - Manage your store">
+    <meta name="keywords" content="admin, dashboard, JCart, management">
+    <title>Dashboard - JCart Admin</title>
+    <link rel="icon" type="image/svg+xml" href="/JCart/views/assets/favicon.svg">
+    <link rel="stylesheet" href="/JCart/views/shared/admin-sidebar/admin-sidebar.css">
+    <link rel="stylesheet" href="styles.css">
+    <script src="/JCart/views/utils/toast.js" defer></script>
+    <script src="/JCart/views/shared/admin-sidebar/admin-sidebar.js" defer></script>
+    <script src="script.js" defer></script>
+</head>
+<body>
+    <!-- Sidebar placeholder -->
+    <div id="sidebarContainer"></div>
+
+    <!-- Main Content -->
+    <main class="main-content">
+        <!-- Top Header -->
+        <header class="top-header">
+            <button class="menu-toggle" id="menuToggle">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+            </button>
+            <div class="header-title">
+                <h1>Dashboard</h1>
+                <p class="breadcrumb">Welcome back, <span id="adminName">Admin</span></p>
+            </div>
+            <div class="header-actions">
+                <div class="admin-profile">
+                    <div class="profile-avatar">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                    </div>
+                    <span id="profileName">Admin</span>
+                </div>
+            </div>
+        </header>
+
+        <!-- Dashboard Content -->
+        <div class="dashboard-content">
+            <!-- Welcome Section -->
+            <section class="welcome-section">
+                <div class="welcome-card">
+                    <div class="welcome-text">
+                        <h2>Welcome to JCart Admin</h2>
+                        <p>Your centralized hub for managing your e-commerce store. Monitor sales, manage products, and track customer orders all in one place.</p>
+                    </div>
+                    <div class="welcome-icon">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="80" height="80" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Quick Actions -->
+            <section class="actions-section">
+                <h3>Quick Actions</h3>
+                <div class="actions-grid">
+                    <a href="/JCart/views/features/admin/adminMt/" class="action-card" data-permission="admins:view">
+                        <div class="action-icon">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M12 8v4"/><path d="M12 16h.01"/></svg>
+                        </div>
+                        <span>Admins</span>
+                    </a>
+                    <a href="/JCart/views/features/admin/customerMt/" class="action-card" data-permission="customers:view">
+                        <div class="action-icon">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                        </div>
+                        <span>Customers</span>
+                    </a>
+                    <a href="/JCart/views/features/admin/productMt/" class="action-card" data-permission="products:view">
+                        <div class="action-icon">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>
+                        </div>
+                        <span>Products</span>
+                    </a>
+                    <a href="/JCart/views/features/admin/orderMt/" class="action-card" data-permission="orders:view">
+                        <div class="action-icon">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+                        </div>
+                        <span>Orders</span>
+                    </a>
+                    <a href="/JCart/views/features/admin/transactionMt/" class="action-card" data-permission="transactions:view">
+                        <div class="action-icon">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+                        </div>
+                        <span>Transactions</span>
+                    </a>
+                </div>
+            </section>
+        </div>
+    </main>
+
+    <script>
+        (function () {
+            'use strict';
+
+            if (localStorage.getItem('adminLoggedIn') !== 'true') {
+                window.location.replace('/JCart/views/features/auth/admin/login/');
+            }
+            
+            // Load sidebar
+            fetch('/JCart/views/shared/admin-sidebar/admin-sidebar.html')
+                .then(function (r) {
+                    if (!r.ok) throw new Error('Failed to load sidebar');
+                    return r.text();
+                })
+                .then(function (html) {
+                    document.getElementById('sidebarContainer').innerHTML = html;
+                    if (window.initializeAdminSidebar) {
+                        window.initializeAdminSidebar('dashboard');
+                    }
+                })
+                .catch(function (err) {
+                    console.error('Error loading sidebar:', err);
+                });
+        })();
+    </script>
+</body>
+</html>

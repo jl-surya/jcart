@@ -206,6 +206,29 @@ public class SessionDAO {
     }
     
     /**
+     * Retrieves all active (non-expired) sessions from database.
+     * Used to reload SessionCache on application startup.
+     *
+     * @return list of active sessions
+     * @throws Exception if database operation fails
+     */
+    public List<Session> getAllActiveSessions() throws Exception {
+        String sql = "SELECT session_id, user_type, user_id, session_token, expires_at, created_at, updated_at, last_sync_at " +
+                     "FROM sessions WHERE expires_at > CURRENT_TIMESTAMP";
+        
+        List<Session> sessions = new java.util.ArrayList<>();
+        
+        try (Connection conn = DBUtil.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql);
+             ResultSet rs = ps.executeQuery()) {
+            while (rs.next()) {
+                sessions.add(mapRow(rs));
+            }
+        }
+        return sessions;
+    }
+    
+    /**
      * Maps ResultSet row to Session object.
      *
      * @param rs the ResultSet

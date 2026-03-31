@@ -336,10 +336,10 @@
             
             // Use API response values, but fallback to current state if missing
             state.pagination = {
-                currentPage: result.currentPage || state.filters.page || 1,
+                currentPage: result.page || state.filters.page || 1,
                 totalPages: result.totalPages || 1,
-                totalItems: result.totalProducts || 0,
-                pageSize: result.pageSize || state.filters.size
+                totalItems: result.total || 0,
+                pageSize: result.size || state.filters.size
             };
 
             renderProducts();

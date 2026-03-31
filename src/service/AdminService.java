@@ -2,7 +2,10 @@ package service;
 
 import dao.AdminDAO;
 import dao.SessionDAO;
+import dto.AdminSearchRequest;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import model.Admin;
 import model.Session;
@@ -184,25 +187,49 @@ public class AdminService {
     }
     
     /**
-     * Retrieves paginated list of all admins.
+     * Searches and retrieves admins with filters, pagination, and sorting.
+     * Consolidated method following product management pattern.
      *
-     * @param page the page number (1-indexed)
-     * @param size the number of records per page
-     * @return list of admins
+     * @param request search request with filters and pagination
+     * @return map containing admins, pagination info, and stats
      * @throws Exception if database operation fails
      */
-    public List<Admin> getAllAdmins(int page, int size) throws Exception {
-        return adminDAO.getAll(page, size);
-    }
-    
-    /**
-     * Gets total count of all admins.
-     *
-     * @return total admin count
-     * @throws Exception if database operation fails
-     */
-    public int getTotalAdmins() throws Exception {
-        return adminDAO.getTotalCount();
+    public Map<String, Object> searchAdmins(AdminSearchRequest request) throws Exception {
+        int page = request.getPageOrDefault();
+        int size = request.getSizeOrDefault();
+        
+        List<Admin> admins = adminDAO.getAll(
+            page, 
+            size, 
+            request.getSearch(), 
+            request.getRole(), 
+            request.getStatus(), 
+            request.getSortBy(), 
+            request.getSortDir()
+        );
+        
+        int total = adminDAO.getAllCount(
+            request.getSearch(), 
+            request.getRole(), 
+            request.getStatus()
+        );
+        
+        Map<String, Integer> stats = adminDAO.getStats(
+            request.getSearch(), 
+            request.getRole(),
+            request.getStatus()
+        );
+        
+        Map<String, Object> result = new HashMap<>();
+        result.put("admins", admins);
+        result.put("page", page);
+        result.put("size", size);
+        result.put("total", total);
+        result.put("totalPages", (int) Math.ceil((double) total / size));
+        result.put("activeCount", stats.getOrDefault("activeCount", 0));
+        result.put("inactiveCount", stats.getOrDefault("inactiveCount", 0));
+        
+        return result;
     }
     
     /**
@@ -351,26 +378,6 @@ public class AdminService {
         sessionDAO.deleteAllForUser(adminId, "ADMIN");
     }
 
-    /**
-     * Activates admin account.
-     *
-     * @param adminId the admin ID to activate
-     * @param currentAdmin the admin performing the activation
-     * @throws Exception if validation fails or operation not allowed
-     */
-    public void activateAdmin(String adminId, Admin currentAdmin) throws Exception {
-        Admin admin = adminDAO.getById(adminId);
-        if (admin == null) {
-            throw new IllegalArgumentException("Admin not found");
-        }
-        
-        if (admin.isSuperAdmin()) {
-            throw new IllegalArgumentException("Cannot activate SUPER_ADMIN account");
-        }
-        
-        adminDAO.activate(adminId);
-    }
-    
     /**
      * Checks if admin has a specific permission.
      *

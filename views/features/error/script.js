@@ -77,10 +77,34 @@
                 if (window.history.length > 1) {
                     window.history.back();
                 } else {
-                    window.location.href = '/JCart/views/index.html';
+                    window.location.href = getHomeUrl();
                 }
             });
         }
+
+        var goHomeBtn = document.getElementById('goHomeBtn');
+        if (goHomeBtn) {
+            goHomeBtn.addEventListener('click', function (e) {
+                e.preventDefault();
+                window.location.href = getHomeUrl();
+            });
+        }
+    }
+
+    /**
+     * Determine correct home URL based on context
+     * Admin -> admin dashboard, Customer/guest -> main homepage
+     */
+    function getHomeUrl() {
+        try {
+            var isAdminLoggedIn = localStorage.getItem('adminLoggedIn') === 'true';
+            if (isAdminLoggedIn) {
+                return '/JCart/views/features/admin/dashboard/';
+            }
+        } catch (e) {
+            // Fallback to home page
+        }
+        return '/JCart/views/index.html';
     }
 
     /**

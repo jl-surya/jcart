@@ -222,4 +222,34 @@ public class SessionCache {
             e.printStackTrace();
         }
     }
+    
+    /**
+     * Loads all active sessions from database into cache.
+     * Called on application startup to restore sessions after server restart.
+     *
+     * @return number of sessions loaded
+     */
+    public static int loadFromDatabase() {
+        try {
+            dao.SessionDAO sessionDAO = new dao.SessionDAO();
+            java.util.List<Session> sessions = sessionDAO.getAllActiveSessions();
+            
+            int count = 0;
+            for (Session session : sessions) {
+                if (session != null && !session.isExpired()) {
+                    session.setDirty(false);
+                    sessionCache.put(session.getSessionId(), session);
+                    tokenToIdCache.put(session.getSessionToken(), session.getSessionId());
+                    count++;
+                }
+            }
+            
+            System.out.println("SessionCache: Loaded " + count + " active sessions from database");
+            return count;
+        } catch (Exception e) {
+            System.err.println("SessionCache: Failed to load sessions from database");
+            e.printStackTrace();
+            return 0;
+        }
+    }
 }

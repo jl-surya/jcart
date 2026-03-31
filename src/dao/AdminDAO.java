@@ -2,7 +2,9 @@ package dao;
 
 import java.sql.*;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import model.Admin;
 import util.DBUtil;
 
@@ -123,25 +125,70 @@ public class AdminDAO {
         }
         return null;
     }
-    
+
     /**
-     * Retrieves all admins with pagination.
-     * Super admins appear first in results.
+     * Retrieves admins with pagination and filters.
+     * Supports search by username/email, role filter, and status filter.
      *
      * @param page the page number (1-indexed)
      * @param size the number of records per page
-     * @return list of admins
+     * @param search search term for username or email (optional)
+     * @param role filter by role (optional)
+     * @param status filter by status: "active", "inactive", or null for all
+     * @return list of admins matching filters
      * @throws Exception if database operation fails
      */
-    public List<Admin> getAll(int page, int size) throws Exception {
-        String sql = "SELECT admin_id, username, email, password, phone, role, permissions, is_active, is_super_admin, created_at, updated_at " +
-                     "FROM admins ORDER BY is_super_admin DESC, created_at DESC LIMIT ? OFFSET ?";
+    public List<Admin> getAll(int page, int size, String search, String role, String status, String sortBy, String sortDir) throws Exception {
+        StringBuilder sql = new StringBuilder();
+        sql.append("SELECT admin_id, username, email, password, phone, role, permissions, is_active, is_super_admin, created_at, updated_at ");
+        sql.append("FROM admins WHERE 1=1 ");
+        
+        List<Object> params = new ArrayList<>();
+        
+        if (search != null && !search.trim().isEmpty()) {
+            sql.append("AND (LOWER(username) LIKE ? OR LOWER(email) LIKE ? OR LOWER(phone) LIKE ?) ");
+            String searchPattern = "%" + search.trim().toLowerCase() + "%";
+            params.add(searchPattern);
+            params.add(searchPattern);
+            params.add(searchPattern);
+        }
+        
+        if (role != null && !role.trim().isEmpty()) {
+            sql.append("AND role = ? ");
+            params.add(role.trim());
+        }
+        
+        if (status != null && !status.trim().isEmpty()) {
+            if ("active".equalsIgnoreCase(status)) {
+                sql.append("AND is_active = TRUE ");
+            } else if ("inactive".equalsIgnoreCase(status)) {
+                sql.append("AND is_active = FALSE ");
+            }
+        }
+        
+        String validatedSortBy = validateSortColumn(sortBy);
+        String validatedSortDir = (sortDir != null && sortDir.equalsIgnoreCase("asc")) ? "ASC" : "DESC";
+        
+        sql.append("ORDER BY ");
+        if (validatedSortBy != null && !validatedSortBy.isEmpty()) {
+            sql.append(validatedSortBy).append(" ").append(validatedSortDir).append(", ");
+        }
+        sql.append("is_super_admin DESC, created_at DESC LIMIT ? OFFSET ?");
+        params.add(size);
+        params.add((page - 1) * size);
+        
         List<Admin> admins = new ArrayList<>();
         
         try (Connection conn = DBUtil.getConnection();
-             PreparedStatement ps = conn.prepareStatement(sql)) {
-            ps.setInt(1, size);
-            ps.setInt(2, (page - 1) * size);
+             PreparedStatement ps = conn.prepareStatement(sql.toString())) {
+            for (int i = 0; i < params.size(); i++) {
+                Object param = params.get(i);
+                if (param instanceof String) {
+                    ps.setString(i + 1, (String) param);
+                } else if (param instanceof Integer) {
+                    ps.setInt(i + 1, (Integer) param);
+                }
+            }
             try (ResultSet rs = ps.executeQuery()) {
                 while (rs.next()) {
                     admins.add(mapRow(rs));
@@ -149,6 +196,121 @@ public class AdminDAO {
             }
         }
         return admins;
+    }
+    
+    /**
+     * Gets total count of admins matching filters.
+     *
+     * @param search search term for username or email (optional)
+     * @param role filter by role (optional)
+     * @param status filter by status: "active", "inactive", or null for all
+     * @return count of admins matching filters
+     * @throws Exception if database operation fails
+     */
+    public int getAllCount(String search, String role, String status) throws Exception {
+        StringBuilder sql = new StringBuilder();
+        sql.append("SELECT COUNT(*) FROM admins WHERE 1=1 ");
+        
+        List<Object> params = new ArrayList<>();
+        
+        if (search != null && !search.trim().isEmpty()) {
+            sql.append("AND (LOWER(username) LIKE ? OR LOWER(email) LIKE ? OR LOWER(phone) LIKE ?) ");
+            String searchPattern = "%" + search.trim().toLowerCase() + "%";
+            params.add(searchPattern);
+            params.add(searchPattern);
+            params.add(searchPattern);
+        }
+        
+        if (role != null && !role.trim().isEmpty()) {
+            sql.append("AND role = ? ");
+            params.add(role.trim());
+        }
+        
+        if (status != null && !status.trim().isEmpty()) {
+            if ("active".equalsIgnoreCase(status)) {
+                sql.append("AND is_active = TRUE ");
+            } else if ("inactive".equalsIgnoreCase(status)) {
+                sql.append("AND is_active = FALSE ");
+            }
+        }
+        
+        try (Connection conn = DBUtil.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql.toString())) {
+            for (int i = 0; i < params.size(); i++) {
+                Object param = params.get(i);
+                if (param instanceof String) {
+                    ps.setString(i + 1, (String) param);
+                }
+            }
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    return rs.getInt(1);
+                }
+            }
+        }
+        return 0;
+    }
+
+    /**
+     * Gets stats (active count, inactive count) for search results.
+     * Consolidated method following product management pattern.
+     *
+     * @param search search term (optional)
+     * @param role filter by role (optional)
+     * @param status status filter (optional - "active", "inactive", or null for all)
+     * @return map with activeCount and inactiveCount
+     * @throws Exception if database operation fails
+     */
+    public Map<String, Integer> getStats(String search, String role, String status) throws Exception {
+        StringBuilder sql = new StringBuilder();
+        sql.append("SELECT ");
+        sql.append("SUM(CASE WHEN is_active = TRUE THEN 1 ELSE 0 END) as active_count, ");
+        sql.append("SUM(CASE WHEN is_active = FALSE THEN 1 ELSE 0 END) as inactive_count ");
+        sql.append("FROM admins WHERE 1=1 ");
+        
+        List<Object> params = new ArrayList<>();
+        
+        if (search != null && !search.trim().isEmpty()) {
+            sql.append("AND (LOWER(username) LIKE ? OR LOWER(email) LIKE ? OR LOWER(phone) LIKE ?) ");
+            String searchPattern = "%" + search.trim().toLowerCase() + "%";
+            params.add(searchPattern);
+            params.add(searchPattern);
+            params.add(searchPattern);
+        }
+        
+        if (role != null && !role.trim().isEmpty()) {
+            sql.append("AND role = ? ");
+            params.add(role.trim());
+        }
+        
+        if (status != null && !status.trim().isEmpty()) {
+            if ("active".equalsIgnoreCase(status.trim())) {
+                sql.append("AND is_active = TRUE ");
+            } else if ("inactive".equalsIgnoreCase(status.trim())) {
+                sql.append("AND is_active = FALSE ");
+            }
+        }
+        
+        Map<String, Integer> stats = new HashMap<>();
+        
+        try (Connection conn = DBUtil.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql.toString())) {
+            for (int i = 0; i < params.size(); i++) {
+                Object param = params.get(i);
+                if (param instanceof String) {
+                    ps.setString(i + 1, (String) param);
+                }
+            }
+            
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    stats.put("activeCount", rs.getInt("active_count"));
+                    stats.put("inactiveCount", rs.getInt("inactive_count"));
+                }
+            }
+        }
+        
+        return stats;
     }
     
     /**
@@ -218,7 +380,7 @@ public class AdminDAO {
             ps.executeUpdate();
         }
     }
-    
+        
     /**
      * Deactivates admin account. Super admin accounts cannot be deactivated.
      *
@@ -242,23 +404,6 @@ public class AdminDAO {
         }
     }
 
-    /**
-     * Activates admin account.
-     *
-     * @param adminId the admin ID
-     * @throws Exception if database operation fails
-     */
-    public void activate(String adminId) throws Exception {
-        String sql = "UPDATE admins SET is_active = TRUE, updated_at = CURRENT_TIMESTAMP " +
-                    "WHERE admin_id = ? AND is_super_admin = FALSE";
-        
-        try (Connection conn = DBUtil.getConnection();
-            PreparedStatement ps = conn.prepareStatement(sql)) {
-            ps.setString(1, adminId);
-            ps.executeUpdate();
-        }
-    }
-    
     /**
      * Checks if username already exists.
      *
@@ -300,23 +445,31 @@ public class AdminDAO {
         }
         return false;
     }
-    
+
     /**
-     * Gets total count of all admins.
+     * Validates and returns safe sort column name for SQL.
      *
-     * @return total admin count
-     * @throws Exception if database operation fails
+     * @param sortBy column name to validate
+     * @return validated column name or null if invalid
      */
-    public int getTotalCount() throws Exception {
-        String sql = "SELECT COUNT(*) FROM admins";
-        try (Connection conn = DBUtil.getConnection();
-             PreparedStatement ps = conn.prepareStatement(sql);
-             ResultSet rs = ps.executeQuery()) {
-            if (rs.next()) {
-                return rs.getInt(1);
-            }
+    private String validateSortColumn(String sortBy) {
+        if (sortBy == null || sortBy.isEmpty()) {
+            return null;
         }
-        return 0;
+        
+        switch (sortBy.toLowerCase()) {
+            case "username":
+                return "username";
+            case "email":
+                return "email";
+            case "role":
+                return "role";
+            case "created_at":
+            case "createdat":
+                return "created_at";
+            default:
+                return null;
+        }
     }
     
     /**

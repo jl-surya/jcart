@@ -2,6 +2,7 @@ package controller;
 
 import config.AsyncExecutor;
 import dto.AdminRegisterRequest;
+import dto.AdminSearchRequest;
 import dto.AdminUpdateRequest;
 import jakarta.servlet.AsyncContext;
 import jakarta.servlet.ServletException;
@@ -14,7 +15,6 @@ import util.JsonUtil;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.concurrent.RejectedExecutionException;
 
@@ -47,75 +47,15 @@ public class AdminManagementController extends BaseController {
     protected void doGet(HttpServletRequest req, HttpServletResponse resp) 
             throws ServletException, IOException {
         
-        AsyncContext asyncContext = req.startAsync();
-        asyncContext.setTimeout(60000);
+        String pathInfo = req.getPathInfo();
         
-        try {
-            AsyncExecutor.EXECUTOR.submit(() -> {
-                try {
-                    HttpServletRequest request = (HttpServletRequest) asyncContext.getRequest();
-                    HttpServletResponse response = (HttpServletResponse) asyncContext.getResponse();
-                    
-                    String pathInfo = request.getPathInfo();
-                    String sessionToken = getSessionTokenFromCookie(request);
-                    
-                    Admin currentAdmin = adminService.getCurrentAdmin(sessionToken);
-                    if (currentAdmin == null) {
-                        sendError(response, "Unauthorized", HttpServletResponse.SC_UNAUTHORIZED);
-                        return;
-                    }
-                    
-                    if (pathInfo == null || pathInfo.equals("/")) {
-                        if (!adminService.hasPermission(currentAdmin, AdminService.PERM_ADMIN_VIEW)) {
-                            sendError(response, "Permission denied. Requires 'admins:view'", 
-                                     HttpServletResponse.SC_FORBIDDEN);
-                            return;
-                        }
-                        
-                        int page = parseInt(request.getParameter("page"), 1);
-                        int size = parseInt(request.getParameter("size"), 20);
-                        List<Admin> admins = adminService.getAllAdmins(page, size);
-                        int total = adminService.getTotalAdmins();
-                        
-                        Map<String, Object> data = new HashMap<>();
-                        data.put("admins", admins);
-                        data.put("page", page);
-                        data.put("size", size);
-                        data.put("total", total);
-                        
-                        sendSuccess(response, data);
-                    } else {
-                        String adminId = pathInfo.substring(1);
-                        
-                        if (!adminService.hasPermission(currentAdmin, AdminService.PERM_ADMIN_VIEW)) {
-                            sendError(response, "Permission denied. Requires 'admins:view'", 
-                                     HttpServletResponse.SC_FORBIDDEN);
-                            return;
-                        }
-                        
-                        Admin admin = adminService.getAdminById(adminId);
-                        if (admin != null) {
-                            sendSuccess(response, admin);
-                        } else {
-                            sendError(response, "Admin not found", HttpServletResponse.SC_NOT_FOUND);
-                        }
-                    }
-                    
-                } catch (Exception e) {
-                    try {
-                        sendError((HttpServletResponse) asyncContext.getResponse(), e.getMessage(), 
-                                 HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
-                    } catch (IOException ignored) {}
-                } finally {
-                    try {
-                        asyncContext.complete();
-                    } catch (IllegalStateException ignored) {}
-                }
-            });
-            
-        } catch (RejectedExecutionException ex) {
-            sendError(resp, "Server overloaded", HttpServletResponse.SC_SERVICE_UNAVAILABLE);
+        if (pathInfo != null && pathInfo.matches("/\\w+")) {
+            String adminId = pathInfo.substring(1);
+            handleGetAdmin(req, resp, adminId);
+            return;
         }
+        
+        sendError(resp, "Endpoint not found", HttpServletResponse.SC_NOT_FOUND);
     }
 
     /**
@@ -156,8 +96,17 @@ public class AdminManagementController extends BaseController {
             } else {
                 sendError(resp, "Method not allowed", HttpServletResponse.SC_METHOD_NOT_ALLOWED);
             }
-        } else if (pathInfo.length() > 1) {
+            return;
+        }
+        
+        if ("/search".equals(pathInfo)) {
+            handleSearch(req, resp, jsonBody);
+            return;
+        }
+        
+        if (pathInfo.matches("/\\w+")) {
             String adminId = pathInfo.substring(1);
+            
             if ("PATCH".equalsIgnoreCase(method)) {
                 handleUpdateAdmin(req, resp, adminId, jsonBody);
             } else if ("DELETE".equalsIgnoreCase(method)) {
@@ -165,9 +114,10 @@ public class AdminManagementController extends BaseController {
             } else {
                 sendError(resp, "Method not allowed", HttpServletResponse.SC_METHOD_NOT_ALLOWED);
             }
-        } else {
-            sendError(resp, "Invalid path", HttpServletResponse.SC_BAD_REQUEST);
+            return;
         }
+        
+        sendError(resp, "Endpoint not found", HttpServletResponse.SC_NOT_FOUND);
     }
     
     /**
@@ -244,7 +194,117 @@ public class AdminManagementController extends BaseController {
             }
         }
     }
+        
+    /**
+     * Handles GET /admin/admins/{id} - retrieves a single admin.
+     *
+     * @param req the HTTP request object
+     * @param resp the HTTP response object
+     * @param adminId the admin ID
+     */
+    private void handleGetAdmin(HttpServletRequest req, HttpServletResponse resp, String adminId) {
+        AsyncContext asyncContext = req.startAsync();
+        asyncContext.setTimeout(60000);
+        
+        try {
+            AsyncExecutor.EXECUTOR.submit(() -> {
+                try {
+                    HttpServletRequest request = (HttpServletRequest) asyncContext.getRequest();
+                    HttpServletResponse response = (HttpServletResponse) asyncContext.getResponse();
+                    
+                    String sessionToken = getSessionTokenFromCookie(request);
+                    
+                    Admin currentAdmin = adminService.getCurrentAdmin(sessionToken);
+                    if (currentAdmin == null) {
+                        sendError(response, "Unauthorized", HttpServletResponse.SC_UNAUTHORIZED);
+                        return;
+                    }
+
+                    if (!adminService.hasPermission(currentAdmin, AdminService.PERM_ADMIN_VIEW)) {
+                        sendError(response, "Permission denied. Requires 'admins:view'", 
+                                 HttpServletResponse.SC_FORBIDDEN);
+                        return;
+                    }
+                    
+                    Admin admin = adminService.getAdminById(adminId);
+                    if (admin != null) {
+                        sendSuccess(response, admin);
+                    } else {
+                        sendError(response, "Admin not found", HttpServletResponse.SC_NOT_FOUND);
+                    }
+                    
+                } catch (Exception e) {
+                    try {
+                        sendError((HttpServletResponse) asyncContext.getResponse(), e.getMessage(), 
+                                 HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+                    } catch (IOException ignored) {}
+                } finally {
+                    asyncContext.complete();
+                }
+            });
+        } catch (RejectedExecutionException ex) {
+            try {
+                sendError(resp, "Server overloaded", HttpServletResponse.SC_SERVICE_UNAVAILABLE);
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
+    }
     
+    /**
+     * Handles POST /admin/admins/search - searches admins with filters.
+     *
+     * @param req the HTTP request object
+     * @param resp the HTTP response object
+     * @param jsonBody the request body as JSON string
+     */
+    private void handleSearch(HttpServletRequest req, HttpServletResponse resp, String jsonBody) {
+        AsyncContext asyncContext = req.startAsync();
+        asyncContext.setTimeout(60000);
+        
+        try {
+            AsyncExecutor.EXECUTOR.submit(() -> {
+                try {
+                    HttpServletRequest request = (HttpServletRequest) asyncContext.getRequest();
+                    HttpServletResponse response = (HttpServletResponse) asyncContext.getResponse();
+                    
+                    String sessionToken = getSessionTokenFromCookie(request);
+                    
+                    Admin currentAdmin = adminService.getCurrentAdmin(sessionToken);
+                    if (currentAdmin == null) {
+                        sendError(response, "Unauthorized", HttpServletResponse.SC_UNAUTHORIZED);
+                        return;
+                    }
+
+                    if (!adminService.hasPermission(currentAdmin, AdminService.PERM_ADMIN_VIEW)) {
+                        sendError(response, "Permission denied. Requires 'admins:view'", 
+                                 HttpServletResponse.SC_FORBIDDEN);
+                        return;
+                    }
+
+                    AdminSearchRequest searchReq = parseSearchRequest(jsonBody);
+                    Map<String, Object> result = adminService.searchAdmins(searchReq);
+                    
+                    sendSuccess(response, result);
+                    
+                } catch (Exception e) {
+                    try {
+                        sendError((HttpServletResponse) asyncContext.getResponse(), e.getMessage(), 
+                                 HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+                    } catch (IOException ignored) {}
+                } finally {
+                    asyncContext.complete();
+                }
+            });
+        } catch (RejectedExecutionException ex) {
+            try {
+                sendError(resp, "Server overloaded", HttpServletResponse.SC_SERVICE_UNAVAILABLE);
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
+    }
+
     /**
      * Handles update of existing admin account.
      *
@@ -419,6 +479,37 @@ public class AdminManagementController extends BaseController {
         }
 
         return req;
+    }
+    
+    /**
+     * Parses JSON into AdminSearchRequest object.
+     *
+     * @param json the JSON string
+     * @return populated AdminSearchRequest object
+     */
+    private AdminSearchRequest parseSearchRequest(String json) {
+        AdminSearchRequest searchReq = new AdminSearchRequest();
+        searchReq.setSearch(JsonUtil.getString(json, "search"));
+        searchReq.setRole(JsonUtil.getString(json, "role"));
+        searchReq.setStatus(JsonUtil.getString(json, "status"));
+        searchReq.setSortBy(JsonUtil.getString(json, "sortBy"));
+        searchReq.setSortDir(JsonUtil.getString(json, "sortDir"));
+        
+        String page = JsonUtil.getString(json, "page");
+        if (page != null) {
+            try {
+                searchReq.setPage(Integer.parseInt(page));
+            } catch (NumberFormatException ignored) {}
+        }
+        
+        String size = JsonUtil.getString(json, "size");
+        if (size != null) {
+            try {
+                searchReq.setSize(Integer.parseInt(size));
+            } catch (NumberFormatException ignored) {}
+        }
+        
+        return searchReq;
     }
     
     /**

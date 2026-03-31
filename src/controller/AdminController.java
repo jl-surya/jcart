@@ -325,9 +325,22 @@ public class AdminController extends BaseController {
                     
                     setSessionCookie(response, session.getSessionToken());
                     
+                    Admin admin = adminService.getCurrentAdmin(session.getSessionToken());
+                    
+                    Map<String, Object> adminData = new HashMap<>();
+                    adminData.put("adminId", admin.getAdminId());
+                    adminData.put("username", admin.getUsername());
+                    adminData.put("email", admin.getEmail());
+                    adminData.put("phone", admin.getPhone());
+                    adminData.put("role", admin.getRole());
+                    adminData.put("isSuperAdmin", admin.isSuperAdmin());
+                    adminData.put("permissions", admin.getPermissions());
+                    adminData.put("isActive", admin.isActive());
+                    
                     Map<String, Object> data = new HashMap<>();
                     data.put("message", "Admin login successful");
                     data.put("expiresInHours", session.getRemainingTimeHours());
+                    data.put("admin", adminData);
                     
                     sendSuccess(response, "Login successful", data);
                     

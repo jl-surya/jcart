@@ -25,7 +25,7 @@ CREATE TABLE admins (
     email VARCHAR(120) UNIQUE NOT NULL,
     password TEXT NOT NULL,
     phone VARCHAR(20),
-    role VARCHAR(30) NOT NULL,
+    role VARCHAR(30) NOT NULL CHECK (role IN ('SUPER_ADMIN', 'ADMIN', 'MANAGER', 'SUPPORT')),
     permissions TEXT[] DEFAULT '{}',
     is_active BOOLEAN DEFAULT TRUE,
     is_super_admin BOOLEAN DEFAULT FALSE,
@@ -34,6 +34,12 @@ CREATE TABLE admins (
 );
 
 ALTER SEQUENCE admin_seq OWNED BY admins.admin_id;
+
+-- Indexes for performance optimization
+CREATE INDEX idx_admins_username ON admins(username);
+CREATE INDEX idx_admins_email ON admins(email);
+CREATE INDEX idx_admins_role ON admins(role);
+CREATE INDEX idx_admins_is_active ON admins(is_active);
 
 -- Customers table: Stores customer account information
 CREATE TABLE customers (
@@ -240,7 +246,7 @@ CREATE TRIGGER protect_super_admin_trigger
 -- Insert super admin account (hashed password)
 INSERT INTO admins (username, email, password, phone, role, permissions, is_active, is_super_admin)
 VALUES (
-    'superadmin',
+    'Super Admin',
     'superadmin@jcart.com',
     'tZzybcrw6p/o4evfqqHe07FdGWExcnAdw87rVaa0mtnEJBbZclS17p7f3mlJA0N/',
     '9999999991',
@@ -327,11 +333,11 @@ SELECT setval(
 -- ADMIN MANAGER (Full admin control)
 INSERT INTO admins (username, email, password, phone, role, permissions, is_active, is_super_admin)
 VALUES (
-    'admin_manager',
+    'Admin Manager',
     'admin_manager@jcart.com',
     'tZzybcrw6p/o4evfqqHe07FdGWExcnAdw87rVaa0mtnEJBbZclS17p7f3mlJA0N/',
     '9999999992',
-    'ADMIN_MANAGER',
+    'MANAGER',
     ARRAY['admins:view', 'admins:create', 'admins:update', 'admins:delete'],
     TRUE,
     FALSE
@@ -341,11 +347,11 @@ VALUES (
 -- CUSTOMER MANAGER
 INSERT INTO admins (username, email, password, phone, role, permissions, is_active, is_super_admin)
 VALUES (
-    'customer_manager',
+    'Customer Manager',
     'customer_manager@jcart.com',
     'tZzybcrw6p/o4evfqqHe07FdGWExcnAdw87rVaa0mtnEJBbZclS17p7f3mlJA0N/',
     '9999999993',
-    'CUSTOMER_MANAGER',
+    'MANAGER',
     ARRAY['customers:view', 'customers:delete'],
     TRUE,
     FALSE
@@ -355,11 +361,11 @@ VALUES (
 -- PRODUCT MANAGER
 INSERT INTO admins (username, email, password, phone, role, permissions, is_active, is_super_admin)
 VALUES (
-    'product_manager',
+    'Product Manager',
     'product_manager@jcart.com',
     'tZzybcrw6p/o4evfqqHe07FdGWExcnAdw87rVaa0mtnEJBbZclS17p7f3mlJA0N/',
     '9999999994',
-    'PRODUCT_MANAGER',
+    'MANAGER',
     ARRAY['products:view', 'products:create', 'products:update', 'products:delete'],
     TRUE,
     FALSE
@@ -369,11 +375,11 @@ VALUES (
 -- ORDER MANAGER
 INSERT INTO admins (username, email, password, phone, role, permissions, is_active, is_super_admin)
 VALUES (
-    'order_manager',
+    'Order Manager',
     'order_manager@jcart.com',
     'tZzybcrw6p/o4evfqqHe07FdGWExcnAdw87rVaa0mtnEJBbZclS17p7f3mlJA0N/',
     '9999999995',
-    'ORDER_MANAGER',
+    'MANAGER',
     ARRAY['orders:view', 'orders:update'],
     TRUE,
     FALSE
@@ -383,11 +389,11 @@ VALUES (
 -- TRANSACTION MANAGER
 INSERT INTO admins (username, email, password, phone, role, permissions, is_active, is_super_admin)
 VALUES (
-    'transaction_manager',
+    'Transaction Manager',
     'transaction_manager@jcart.com',
     'tZzybcrw6p/o4evfqqHe07FdGWExcnAdw87rVaa0mtnEJBbZclS17p7f3mlJA0N/',
     '9999999996',
-    'TRANSACTION_MANAGER',
+    'MANAGER',
     ARRAY['transactions:view', 'transactions:update'],
     TRUE,
     FALSE
@@ -397,11 +403,11 @@ VALUES (
 -- VIEWER (Read-only across modules)
 INSERT INTO admins (username, email, password, phone, role, permissions, is_active, is_super_admin)
 VALUES (
-    'viewer',
+    'Viewer',
     'viewer@jcart.com',
     'tZzybcrw6p/o4evfqqHe07FdGWExcnAdw87rVaa0mtnEJBbZclS17p7f3mlJA0N/',
     '9999999997',
-    'VIEWER',
+    'SUPPORT',
     ARRAY['admins:view', 'customers:view', 'products:view', 'orders:view', 'transactions:view'],
     TRUE,
     FALSE

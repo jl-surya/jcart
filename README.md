@@ -81,6 +81,7 @@ JCart/
 │   │   ├── AddressRequest.java                     # Address create/update DTO
 │   │   ├── AdminLoginRequest.java                  # Admin login DTO
 │   │   ├── AdminRegisterRequest.java               # Admin registration DTO
+│   │   ├── AdminSearchRequest.java                 # Admin search filters DTO
 │   │   ├── AdminUpdateRequest.java                 # Admin profile update DTO
 │   │   ├── ApiResponse.java                        # Standard API response wrapper
 │   │   ├── CartItemRequest.java                    # Add to cart DTO
@@ -103,6 +104,8 @@ JCart/
 │   ├── filter/
 │   │   ├── AdminAuthFilter.java                    # Authentication filter for admin endpoints
 │   │   └── CustomerAuthFilter.java                 # Authentication filter for customer endpoints
+│   ├── listener/
+│   │   └── SessionCacheInitializer.java            # Session cache initialization on app startup
 │   ├── model/
 │   │   ├── Address.java                            # Address entity with default flag
 │   │   ├── Admin.java                              # Admin entity with permissions
@@ -317,14 +320,21 @@ views/
 │   ├── navbar/                                 # Site navigation header with cart badge
 │   ├── footer/                                 # Site footer component
 │   ├── pagination/                             # Reusable pagination component
-│   └── cart-modal/                             # Shopping cart confirmation modal
+│   ├── cart-modal/                             # Shopping cart confirmation modal
+│   └── admin-sidebar/                          # Admin panel sidebar navigation with permissions
 ├── utils/                                      # Global utility functions
 │   ├── auth.js                                 # Authentication utilities & session management
 │   └── toast.js                                # Toast notification system
 └── features/                                   # Feature-specific pages
-    ├── auth/customer/                          # Customer authentication flows
-    │   ├── login/                              # Customer login page
-    │   └── register/                           # Customer registration page  
+    ├── auth/
+    │   ├── customer/                           # Customer authentication flows
+    │   │   ├── login/                          # Customer login page
+    │   │   └── register/                       # Customer registration page
+    │   └── admin/
+    │       └── login/                          # Admin login page with credential validation
+    ├── admin/                                  # Admin panel features
+    │   ├── dashboard/                          # Admin dashboard with quick actions
+    │   └── adminMt/                            # Admin management (CRUD for admins)
     ├── products/customer/                      # Product browsing & viewing
     │   ├── search/                             # Product search & listing page
     │   └── detail/                             # Individual product detail page
@@ -367,3 +377,16 @@ views/
    - Order Details - Complete order view with items, timeline, and invoice
    - Order Cancellation - Cancel processing orders with automatic refund initiation
    - Transaction History - Payment and refund tracking with status badges and detail modal
+
+4. Session Caching, Admin Authentication, Dashboard & Admin Management
+   - Admin Login Page - Secure authentication with credential validation and loading states
+   - Session Management - In-memory session caching with periodic database persistence
+   - Admin Dashboard - Quick action cards for managing admins, customers, products, orders, and transactions
+   - Permission-based UI - Dashboard cards visible only for authorized admin roles
+   - Admin Sidebar Component - Consistent navigation across admin panel with permission-based menu items
+   - Admin Management Page (adminMt) - Full CRUD operations for administrator accounts
+   - Admin Search & Filters - Search by username/email/phone with role and status filters
+   - Admin Statistics - Real-time counts of active/inactive admins filtered by search criteria
+   - Permission Management - Granular module-level permissions (view, create, update, delete) with auto-selection dependencies
+   - Deactivate/Reactivate - Soft delete functionality for admin account management
+   - Sorting & Pagination - Sort by username, role, or status with 15/30/45 items per page
