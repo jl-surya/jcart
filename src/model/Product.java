@@ -34,6 +34,7 @@ public class Product implements Serializable {
     private boolean isActive;
     private Timestamp createdAt;
     private Timestamp updatedAt;
+    private BigDecimal finalPrice;
 
     public String getProductId() { return productId; }
     public void setProductId(String productId) { this.productId = productId; }
@@ -89,11 +90,31 @@ public class Product implements Serializable {
      * @return final price after discount, or original price if no discount
      */
     public BigDecimal getFinalPrice() {
+        if (finalPrice != null) return finalPrice;
         if (price == null) return BigDecimal.ZERO;
         if (discount != null && discount.compareTo(BigDecimal.ZERO) > 0) {
             BigDecimal discountAmount = price.multiply(discount).divide(BigDecimal.valueOf(100));
             return price.subtract(discountAmount);
         }
         return price;
+    }
+    
+    public void setFinalPrice(BigDecimal finalPrice) { this.finalPrice = finalPrice; }
+    
+    /**
+     * Calculates and sets the final price field for serialization.
+     * Call this before serializing the product to JSON.
+     */
+    public void calculateFinalPrice() {
+        if (price == null) {
+            this.finalPrice = BigDecimal.ZERO;
+            return;
+        }
+        if (discount != null && discount.compareTo(BigDecimal.ZERO) > 0) {
+            BigDecimal discountAmount = price.multiply(discount).divide(BigDecimal.valueOf(100));
+            this.finalPrice = price.subtract(discountAmount);
+        } else {
+            this.finalPrice = price;
+        }
     }
 }

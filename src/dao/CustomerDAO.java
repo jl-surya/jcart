@@ -2,7 +2,9 @@ package dao;
 
 import java.sql.*;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import model.Customer;
 import util.DBUtil;
 
@@ -120,22 +122,55 @@ public class CustomerDAO {
     }
     
     /**
-     * Retrieves all customers with pagination.
+     * Gets all customers with filtering and pagination.
      *
      * @param page the page number (1-indexed)
      * @param size the number of records per page
-     * @return list of customers
+     * @param search search term for username or email
+     * @param status filter by active/inactive status
+     * @return list of filtered customers
      * @throws Exception if database operation fails
      */
-    public List<Customer> getAll(int page, int size) throws Exception {
-        String sql = "SELECT customer_id, username, email, password, phone, is_active, created_at, updated_at " +
-                     "FROM customers ORDER BY created_at DESC LIMIT ? OFFSET ?";
+    public List<Customer> getAll(int page, int size, String search, String status, String sortBy, String sortDir) throws Exception {
+        StringBuilder sql = new StringBuilder();
+        sql.append("SELECT customer_id, username, email, password, phone, is_active, created_at, updated_at ");
+        sql.append("FROM customers WHERE 1=1 ");
+        
+        List<Object> params = new ArrayList<>();
+        
+        if (search != null && !search.trim().isEmpty()) {
+            sql.append("AND (LOWER(username) LIKE ? OR LOWER(email) LIKE ?) ");
+            String searchPattern = "%" + search.trim().toLowerCase() + "%";
+            params.add(searchPattern);
+            params.add(searchPattern);
+        }
+        
+        if (status != null && !status.trim().isEmpty()) {
+            if ("active".equalsIgnoreCase(status)) {
+                sql.append("AND is_active = TRUE ");
+            } else if ("inactive".equalsIgnoreCase(status)) {
+                sql.append("AND is_active = FALSE ");
+            }
+        }
+        
+        String validatedSortBy = validateSortColumn(sortBy);
+        String validatedSortDir = (sortDir != null && sortDir.equalsIgnoreCase("asc")) ? "ASC" : "DESC";
+        
+        sql.append("ORDER BY ");
+        if (validatedSortBy != null && !validatedSortBy.isEmpty()) {
+            sql.append(validatedSortBy).append(" ").append(validatedSortDir).append(", ");
+        }
+        sql.append("created_at DESC LIMIT ? OFFSET ?");
+        params.add(size);
+        params.add((page - 1) * size);
+        
         List<Customer> customers = new ArrayList<>();
         
         try (Connection conn = DBUtil.getConnection();
-             PreparedStatement ps = conn.prepareStatement(sql)) {
-            ps.setInt(1, size);
-            ps.setInt(2, (page - 1) * size);
+             PreparedStatement ps = conn.prepareStatement(sql.toString())) {
+            for (int i = 0; i < params.size(); i++) {
+                ps.setObject(i + 1, params.get(i));
+            }
             try (ResultSet rs = ps.executeQuery()) {
                 while (rs.next()) {
                     customers.add(mapRow(rs));
@@ -143,34 +178,103 @@ public class CustomerDAO {
             }
         }
         return customers;
+    }
+
+    /**
+     * Gets total count of filtered customers.
+     *
+     * @param search search term for username or email
+     * @param status filter by active/inactive status
+     * @return total count of matching customers
+     * @throws Exception if database operation fails
+     */
+    public int getAllCount(String search, String status) throws Exception {
+        StringBuilder sql = new StringBuilder();
+        sql.append("SELECT COUNT(*) FROM customers WHERE 1=1 ");
+        
+        List<Object> params = new ArrayList<>();
+        
+        if (search != null && !search.trim().isEmpty()) {
+            sql.append("AND (LOWER(username) LIKE ? OR LOWER(email) LIKE ?) ");
+            String searchPattern = "%" + search.trim().toLowerCase() + "%";
+            params.add(searchPattern);
+            params.add(searchPattern);
+        }
+        
+        if (status != null && !status.trim().isEmpty()) {
+            if ("active".equalsIgnoreCase(status)) {
+                sql.append("AND is_active = TRUE ");
+            } else if ("inactive".equalsIgnoreCase(status)) {
+                sql.append("AND is_active = FALSE ");
+            }
+        }
+        
+        try (Connection conn = DBUtil.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql.toString())) {
+            for (int i = 0; i < params.size(); i++) {
+                ps.setObject(i + 1, params.get(i));
+            }
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    return rs.getInt(1);
+                }
+            }
+        }
+        return 0;
     }
     
     /**
-     * Retrieves all active customers with pagination.
+     * Gets stats (active count, inactive count) for search results.
+     * Consolidated method following product management pattern.
      *
-     * @param page the page number (1-indexed)
-     * @param size the number of records per page
-     * @return list of active customers
+     * @param search search term (optional)
+     * @param status filter by active/inactive status (optional)
+     * @return map with activeCount and inactiveCount
      * @throws Exception if database operation fails
      */
-    public List<Customer> getAllActive(int page, int size) throws Exception {
-        String sql = "SELECT customer_id, username, email, password, phone, is_active, created_at, updated_at " +
-                     "FROM customers WHERE is_active = TRUE ORDER BY created_at DESC LIMIT ? OFFSET ?";
-        List<Customer> customers = new ArrayList<>();
+    public Map<String, Integer> getStats(String search, String status) throws Exception {
+        StringBuilder sql = new StringBuilder();
+        sql.append("SELECT ");
+        sql.append("SUM(CASE WHEN is_active = TRUE THEN 1 ELSE 0 END) as active_count, ");
+        sql.append("SUM(CASE WHEN is_active = FALSE THEN 1 ELSE 0 END) as inactive_count ");
+        sql.append("FROM customers WHERE 1=1 ");
+        
+        List<Object> params = new ArrayList<>();
+        
+        if (search != null && !search.trim().isEmpty()) {
+            sql.append("AND (LOWER(username) LIKE ? OR LOWER(email) LIKE ?) ");
+            String searchPattern = "%" + search.trim().toLowerCase() + "%";
+            params.add(searchPattern);
+            params.add(searchPattern);
+        }
+        
+        if (status != null && !status.trim().isEmpty()) {
+            if ("active".equalsIgnoreCase(status.trim())) {
+                sql.append("AND is_active = TRUE ");
+            } else if ("inactive".equalsIgnoreCase(status.trim())) {
+                sql.append("AND is_active = FALSE ");
+            }
+        }
+        
+        Map<String, Integer> stats = new HashMap<>();
         
         try (Connection conn = DBUtil.getConnection();
-             PreparedStatement ps = conn.prepareStatement(sql)) {
-            ps.setInt(1, size);
-            ps.setInt(2, (page - 1) * size);
+             PreparedStatement ps = conn.prepareStatement(sql.toString())) {
+            for (int i = 0; i < params.size(); i++) {
+                ps.setObject(i + 1, params.get(i));
+            }
+            
             try (ResultSet rs = ps.executeQuery()) {
-                while (rs.next()) {
-                    customers.add(mapRow(rs));
+                if (rs.next()) {
+                    stats.put("activeCount", rs.getInt("active_count"));
+                    stats.put("inactiveCount", rs.getInt("inactive_count"));
                 }
             }
         }
-        return customers;
+        
+        return stats;
     }
-    
+        
     /**
      * Updates customer profile information.
      *
@@ -267,43 +371,31 @@ public class CustomerDAO {
         }
         return false;
     }
-    
+
     /**
-     * Gets total count of all customers.
+     * Validates and returns safe sort column name for SQL.
      *
-     * @return total customer count
-     * @throws Exception if database operation fails
+     * @param sortBy column name to validate
+     * @return validated column name or null if invalid
      */
-    public int getTotalCount() throws Exception {
-        String sql = "SELECT COUNT(*) FROM customers";
-        try (Connection conn = DBUtil.getConnection();
-             PreparedStatement ps = conn.prepareStatement(sql);
-             ResultSet rs = ps.executeQuery()) {
-            if (rs.next()) {
-                return rs.getInt(1);
-            }
+    private String validateSortColumn(String sortBy) {
+        if (sortBy == null || sortBy.isEmpty()) {
+            return null;
         }
-        return 0;
-    }
-    
-    /**
-     * Gets count of active customers.
-     *
-     * @return active customer count
-     * @throws Exception if database operation fails
-     */
-    public int getActiveCount() throws Exception {
-        String sql = "SELECT COUNT(*) FROM customers WHERE is_active = TRUE";
-        try (Connection conn = DBUtil.getConnection();
-             PreparedStatement ps = conn.prepareStatement(sql);
-             ResultSet rs = ps.executeQuery()) {
-            if (rs.next()) {
-                return rs.getInt(1);
-            }
+        
+        switch (sortBy.toLowerCase()) {
+            case "username":
+                return "username";
+            case "email":
+                return "email";
+            case "created_at":
+            case "createdat":
+                return "created_at";
+            default:
+                return null;
         }
-        return 0;
     }
-    
+        
     /**
      * Maps ResultSet row to Customer object.
      *

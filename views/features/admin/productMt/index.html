@@ -1,0 +1,541 @@
+<!DOCTYPE html>
+<!-- Product Management Page - Manage product catalog for administrators -->
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+    <meta name="description" content="JCart Product Management - Manage product catalog">
+    <meta name="keywords" content="product, management, catalog, JCart">
+    <title>Product Management - JCart Admin</title>
+    <link rel="icon" type="image/svg+xml" href="/JCart/views/assets/favicon.svg">
+    <link rel="stylesheet" href="/JCart/views/shared/admin-sidebar/admin-sidebar.css">
+    <link rel="stylesheet" href="/JCart/views/shared/pagination/pagination.css">
+    <link rel="stylesheet" href="styles.css">
+    <script src="/JCart/views/utils/toast.js" defer></script>
+    <script src="/JCart/views/shared/admin-sidebar/admin-sidebar.js" defer></script>
+    <script src="/JCart/views/shared/pagination/pagination.js" defer></script>
+    <script src="script.js" defer></script>
+</head>
+<body>
+    <!-- Sidebar placeholder -->
+    <div id="sidebarContainer"></div>
+
+    <!-- Main Content -->
+    <main class="main-content">
+        <!-- Top Header -->
+        <header class="top-header">
+            <button class="menu-toggle" id="menuToggle">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+            </button>
+            <div class="header-title">
+                <h1>Product Management</h1>
+                <p class="breadcrumb">Manage product catalog and inventory</p>
+            </div>
+            <div class="header-actions">
+                <button class="btn-add" id="addProductBtn">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                    Add Product
+                </button>
+                <div class="admin-profile">
+                    <div class="profile-avatar">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                    </div>
+                    <span id="profileName">Admin</span>
+                </div>
+            </div>
+        </header>
+
+        <!-- Page Content -->
+        <div class="page-content">
+            <!-- Stats Cards -->
+            <section class="stats-row">
+                <div class="stat-card">
+                    <div class="stat-icon total">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>
+                    </div>
+                    <div class="stat-info">
+                        <span class="stat-value" id="totalProducts">--</span>
+                        <span class="stat-label">Total Products</span>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon active">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+                    </div>
+                    <div class="stat-info">
+                        <span class="stat-value" id="activeProducts">--</span>
+                        <span class="stat-label">Active</span>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon inactive">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>
+                    </div>
+                    <div class="stat-info">
+                        <span class="stat-value" id="inactiveProducts">--</span>
+                        <span class="stat-label">Inactive</span>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon low-stock">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                    </div>
+                    <div class="stat-info">
+                        <span class="stat-value" id="lowStockProducts">--</span>
+                        <span class="stat-label">Low Stock</span>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Product List -->
+            <section class="list-section">
+                <div class="list-header">
+                    <h3>All Products</h3>
+                    <div class="list-controls">
+                        <div class="search-box">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                            <input type="text" id="searchInput" placeholder="Search by name, category...">
+                        </div>
+                        <button class="btn-toggle-filters" id="toggleFiltersBtn" title="Toggle advanced filters">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
+                            <span>Filters</span>
+                            <span class="filter-count" id="filterCount"></span>
+                        </button>
+                        <button class="btn-apply-filters" id="applyFiltersBtn" title="Apply filters">
+                            <span>Apply</span>
+                        </button>
+                        <button class="btn-clear-filters" id="clearFiltersBtn" title="Clear all filters">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                            <span>Clear</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Advanced Filters Panel -->
+                <div class="filters-panel" id="filtersPanel">
+                    <div class="filters-grid">
+                        <div class="filter-item">
+                            <label for="categoryFilter">Category</label>
+                            <select id="categoryFilter" class="filter-select">
+                                <option value="">All Categories</option>
+                            </select>
+                        </div>
+                        <div class="filter-item">
+                            <label for="statusFilter">Status</label>
+                            <select id="statusFilter" class="filter-select">
+                                <option value="">All Status</option>
+                                <option value="active">Active</option>
+                                <option value="inactive">Inactive</option>
+                            </select>
+                        </div>
+                        <div class="filter-item">
+                            <label for="stockFilter">Stock</label>
+                            <select id="stockFilter" class="filter-select">
+                                <option value="">All Stock</option>
+                                <option value="inStock">In Stock</option>
+                                <option value="lowStock">Low Stock</option>
+                                <option value="outOfStock">Out of Stock</option>
+                            </select>
+                        </div>
+                        <div class="filter-item">
+                            <label for="ageGroupFilter">Age Group</label>
+                            <select id="ageGroupFilter" class="filter-select">
+                                <option value="">All Ages</option>
+                            </select>
+                        </div>
+                        <div class="filter-item">
+                            <label for="genderFilter">Gender</label>
+                            <select id="genderFilter" class="filter-select">
+                                <option value="">All Genders</option>
+                            </select>
+                        </div>
+                        <div class="filter-item">
+                            <label for="seasonalityFilter">Seasonality</label>
+                            <select id="seasonalityFilter" class="filter-select">
+                                <option value="">All</option>
+                                <option value="Yes">Seasonal</option>
+                                <option value="No">Year-round</option>
+                            </select>
+                        </div>
+                        <div class="filter-item">
+                            <label for="minPrice">Min Price</label>
+                            <input type="number" id="minPrice" class="filter-input" placeholder="0.00" min="0" step="0.01">
+                        </div>
+                        <div class="filter-item">
+                            <label for="maxPrice">Max Price</label>
+                            <input type="number" id="maxPrice" class="filter-input" placeholder="999.99" min="0" step="0.01">
+                        </div>
+                        <div class="filter-item">
+                            <label for="sortBy">Sort By</label>
+                            <select id="sortBy" class="filter-select">
+                                <option value="created_at">Date Created</option>
+                                <option value="product_name">Name</option>
+                                <option value="price">Price</option>
+                                <option value="stock_level">Stock Level</option>
+                                <option value="category">Category</option>
+                            </select>
+                        </div>
+                        <div class="filter-item">
+                            <label for="sortDir">Sort Order</label>
+                            <select id="sortDir" class="filter-select">
+                                <option value="DESC">Descending</option>
+                                <option value="ASC">Ascending</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="table-container">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Product</th>
+                                <th>Category</th>
+                                <th>Price</th>
+                                <th>Discount</th>
+                                <th>Stock</th>
+                                <th>Status</th>
+                                <th class="actions-header">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="productTableBody">
+                            <tr class="loading-row">
+                                <td colspan="7">
+                                    <div class="loading-spinner"></div>
+                                    <span>Loading products...</span>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Shared Pagination Component -->
+                <div id="paginationPlaceholder"></div>
+            </section>
+        </div>
+    </main>
+
+    <!-- Add/Edit Product Modal -->
+    <div class="modal-overlay" id="productModal">
+        <div class="modal modal-lg">
+            <div class="modal-header">
+                <h3 id="modalTitle">Add New Product</h3>
+                <button class="modal-close" id="modalClose">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                </button>
+            </div>
+            <form id="productForm" novalidate>
+                <input type="hidden" id="productId" name="productId">
+                
+                <div class="form-section">
+                    <h4 class="form-section-title">Basic Information</h4>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="productName">Product Name <span class="required">*</span></label>
+                            <input type="text" id="productName" name="productName" placeholder="Enter product name" required>
+                            <div class="error-message"></div>
+                        </div>
+                        <div class="form-group">
+                            <label for="category">Category</label>
+                            <select id="category" name="category">
+                                <option value="">Select category</option>
+                            </select>
+                            <div class="error-message"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-section">
+                    <h4 class="form-section-title">Pricing</h4>
+                    <div class="form-row form-row-3">
+                        <div class="form-group">
+                            <label for="price">Price <span class="required">*</span></label>
+                            <input type="number" id="price" name="price" placeholder="0.00" step="0.01" min="0" required>
+                            <div class="error-message"></div>
+                        </div>
+                        <div class="form-group">
+                            <label for="discount">Discount (%)</label>
+                            <input type="number" id="discount" name="discount" placeholder="0" step="0.01" min="0" max="100">
+                            <div class="error-message"></div>
+                        </div>
+                        <div class="form-group">
+                            <label for="taxRate">Tax Rate (%)</label>
+                            <input type="number" id="taxRate" name="taxRate" value="8" step="0.01" min="0">
+                            <div class="error-message"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-section">
+                    <h4 class="form-section-title">Inventory</h4>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="stockLevel">Stock Level</label>
+                            <input type="number" id="stockLevel" name="stockLevel" placeholder="0" min="0">
+                            <div class="error-message"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-section">
+                    <h4 class="form-section-title">Product Attributes</h4>
+                    <div class="form-row form-row-3">
+                        <div class="form-group">
+                            <label for="ageGroup">Age Group</label>
+                            <select id="ageGroup" name="ageGroup">
+                                <option value="">Select age group</option>
+                            </select>
+                            <div class="error-message"></div>
+                        </div>
+                        <div class="form-group">
+                            <label for="gender">Gender</label>
+                            <select id="gender" name="gender">
+                                <option value="">Select gender</option>
+                            </select>
+                            <div class="error-message"></div>
+                        </div>
+                        <div class="form-group">
+                            <label for="seasonality">Seasonality</label>
+                            <select id="seasonality" name="seasonality">
+                                <option value="">Select seasonality</option>
+                                <option value="Yes">Seasonal</option>
+                                <option value="No">Year-round</option>
+                            </select>
+                            <div class="error-message"></div>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="location">Location</label>
+                            <select id="location" name="location">
+                                <option value="">Select location</option>
+                            </select>
+                            <div class="error-message"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-section">
+                    <h4 class="form-section-title">Shipping</h4>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="shippingCost">Shipping Cost</label>
+                            <input type="number" id="shippingCost" name="shippingCost" placeholder="0.00" step="0.01" min="0">
+                            <div class="error-message"></div>
+                        </div>
+                        <div class="form-group">
+                            <label for="shippingMethod">Shipping Method</label>
+                            <select id="shippingMethod" name="shippingMethod">
+                                <option value="">Select shipping method</option>
+                                <option value="Standard">Standard</option>
+                                <option value="Express">Express</option>
+                                <option value="Overnight">Overnight</option>
+                                <option value="Free">Free Shipping</option>
+                            </select>
+                            <div class="error-message"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="modal-footer">
+                    <button type="button" class="btn-cancel" id="cancelBtn">Cancel</button>
+                    <button type="submit" class="btn-submit" id="submitBtn">
+                        <span>Create Product</span>
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- View Product Details Modal -->
+    <div class="modal-overlay" id="viewModal">
+        <div class="modal modal-view">
+            <div class="modal-header">
+                <h3>Product Details</h3>
+                <button class="modal-close" id="viewModalClose">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                </button>
+            </div>
+            <div class="modal-body view-body">
+                <div class="view-section">
+                    <div class="view-header">
+                        <div class="view-avatar product-avatar" id="viewAvatar">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>
+                        </div>
+                        <div class="view-title">
+                            <h2 id="viewProductName">--</h2>
+                            <span class="category-badge" id="viewCategoryBadge">--</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="view-section">
+                    <h4 class="section-title">Pricing Information</h4>
+                    <div class="info-grid">
+                        <div class="info-item">
+                            <span class="info-label">Base Price</span>
+                            <span class="info-value price-value" id="viewPrice">--</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">Discount</span>
+                            <span class="info-value" id="viewDiscount">--</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">Final Price</span>
+                            <span class="info-value price-value final-price" id="viewFinalPrice">--</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">Tax Rate</span>
+                            <span class="info-value" id="viewTaxRate">--</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="view-section">
+                    <h4 class="section-title">Inventory</h4>
+                    <div class="info-grid">
+                        <div class="info-item">
+                            <span class="info-label">Stock Level</span>
+                            <span class="info-value" id="viewStockLevel">--</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">Status</span>
+                            <span class="status-badge" id="viewStatus">--</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">Product ID</span>
+                            <span class="info-value" id="viewProductId">--</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="view-section">
+                    <h4 class="section-title">Product Attributes</h4>
+                    <div class="info-grid">
+                        <div class="info-item">
+                            <span class="info-label">Age Group</span>
+                            <span class="info-value" id="viewAgeGroup">--</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">Gender</span>
+                            <span class="info-value" id="viewGender">--</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">Seasonality</span>
+                            <span class="info-value" id="viewSeasonality">--</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">Location</span>
+                            <span class="info-value" id="viewLocation">--</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="view-section">
+                    <h4 class="section-title">Shipping</h4>
+                    <div class="info-grid">
+                        <div class="info-item">
+                            <span class="info-label">Shipping Cost</span>
+                            <span class="info-value" id="viewShippingCost">--</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">Shipping Method</span>
+                            <span class="info-value" id="viewShippingMethod">--</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="view-section">
+                    <h4 class="section-title">Timestamps</h4>
+                    <div class="info-grid">
+                        <div class="info-item">
+                            <span class="info-label">Created At</span>
+                            <span class="info-value" id="viewCreatedAt">--</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">Last Updated</span>
+                            <span class="info-value" id="viewUpdatedAt">--</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn-cancel" id="viewCloseBtn">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Delete Confirmation Modal -->
+    <div class="modal-overlay" id="deleteModal">
+        <div class="modal modal-sm">
+            <div class="modal-header">
+                <h3>Deactivate Product</h3>
+                <button class="modal-close" id="deleteModalClose">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                </button>
+            </div>
+            <div class="modal-body">
+                <p>Are you sure you want to deactivate <strong id="deleteProductName"></strong>?</p>
+                <p class="warning-text">This product will no longer be visible to customers.</p>
+                <div class="form-group confirm-group">
+                    <label for="confirmDelete">Type <strong>DELETE</strong> to confirm</label>
+                    <input type="text" id="confirmDelete" placeholder="DELETE">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn-cancel" id="deleteCancelBtn">Cancel</button>
+                <button type="button" class="btn-danger" id="deleteConfirmBtn" disabled>Deactivate</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Activate Confirmation Modal -->
+    <div class="modal-overlay" id="activateModal">
+        <div class="modal modal-sm">
+            <div class="modal-header">
+                <h3>Activate Product</h3>
+                <button class="modal-close" id="activateModalClose">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                </button>
+            </div>
+            <div class="modal-body">
+                <p>Are you sure you want to activate <strong id="activateProductName"></strong>?</p>
+                <p class="success-text">This product will become visible to customers.</p>
+                <div class="form-group confirm-group">
+                    <label for="confirmActivate">Type <strong>ACTIVATE</strong> to confirm</label>
+                    <input type="text" id="confirmActivate" placeholder="ACTIVATE">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn-cancel" id="activateCancelBtn">Cancel</button>
+                <button type="button" class="btn-success" id="activateConfirmBtn" disabled>Activate</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        (function () {
+            'use strict';
+            if (localStorage.getItem('adminLoggedIn') !== 'true') {
+                window.location.replace('/JCart/views/features/auth/admin/login/');
+            }
+            
+            // Load sidebar
+            fetch('/JCart/views/shared/admin-sidebar/admin-sidebar.html')
+                .then(function (r) {
+                    if (!r.ok) throw new Error('Failed to load sidebar');
+                    return r.text();
+                })
+                .then(function (html) {
+                    document.getElementById('sidebarContainer').innerHTML = html;
+                    if (window.initializeAdminSidebar) {
+                        window.initializeAdminSidebar('productMt');
+                    }
+                })
+                .catch(function (err) {
+                    console.error('Error loading sidebar:', err);
+                });
+        })();
+    </script>
+</body>
+</html>

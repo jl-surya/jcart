@@ -4,7 +4,6 @@ import config.AsyncExecutor;
 import dto.ProductSearchRequest;
 import jakarta.servlet.AsyncContext;
 import jakarta.servlet.ServletException;
-import jakarta.servlet.annotation.WebServlet;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import model.Product;

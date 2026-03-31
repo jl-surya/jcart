@@ -20,6 +20,7 @@ public class ProductSearchRequest {
     private Double minPrice;
     private Double maxPrice;
     private Boolean inStock;
+    private Boolean lowStock;
     private Boolean showInactive;
     private String sortBy;
     private String sortDir;
@@ -42,6 +43,8 @@ public class ProductSearchRequest {
     public void setMaxPrice(Double maxPrice) { this.maxPrice = maxPrice; }
     public Boolean getInStock() { return inStock; }
     public void setInStock(Boolean inStock) { this.inStock = inStock; }
+    public Boolean getLowStock() { return lowStock; }
+    public void setLowStock(Boolean lowStock) { this.lowStock = lowStock; }
     public Boolean getShowInactive() { return showInactive; }
     public void setShowInactive(Boolean showInactive) { this.showInactive = showInactive; }
     public String getSortBy() { return sortBy; }

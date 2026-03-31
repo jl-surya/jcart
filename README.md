@@ -87,6 +87,7 @@ JCart/
 │   │   ├── CartItemRequest.java                    # Add to cart DTO
 │   │   ├── CustomerLoginRequest.java               # Customer login DTO
 │   │   ├── CustomerRegisterRequest.java            # Customer registration DTO
+│   │   ├── CustomerSearchRequest.java              # Customer search filters DTO
 │   │   ├── CustomerUpdateRequest.java              # Customer profile update DTO
 │   │   ├── DirectOrderRequest.java                 # Direct buy now order DTO
 │   │   ├── OrderFilterRequest.java                 # Order list filters DTO
@@ -334,7 +335,9 @@ views/
     │       └── login/                          # Admin login page with credential validation
     ├── admin/                                  # Admin panel features
     │   ├── dashboard/                          # Admin dashboard with quick actions
-    │   └── adminMt/                            # Admin management (CRUD for admins)
+    │   ├── adminMt/                            # Admin management (CRUD for admins)
+    │   ├── customerMt/                         # Customer management for admins
+    │   └── productMt/                          # Product management for admins
     ├── products/customer/                      # Product browsing & viewing
     │   ├── search/                             # Product search & listing page
     │   └── detail/                             # Individual product detail page
@@ -390,3 +393,18 @@ views/
    - Permission Management - Granular module-level permissions (view, create, update, delete) with auto-selection dependencies
    - Deactivate/Reactivate - Soft delete functionality for admin account management
    - Sorting & Pagination - Sort by username, role, or status with 15/30/45 items per page
+
+5. Product & Customer Management for Admins
+   - Customer Management Page (customerMt) - View-only customer listing with search and filters
+   - Customer Search & Filters - Search by username/email with active/inactive status filtering
+   - Customer Statistics - Real-time counts of active/inactive customers based on filtered data
+   - View Customer Details - Modal displaying customer information and account status
+   - Deactivate Customers - Soft delete functionality for customer accounts
+   - Product Management Page (productMt) - Full CRUD operations for product catalog
+   - Product Search & Filters - Advanced filtering by keyword, category, age group, gender, seasonality, price range, stock status
+   - Product Statistics - Dynamic counts showing active/inactive products and low stock items filtered by search criteria
+   - Stock Status Filtering - Filter by in-stock, out-of-stock, or low-stock products
+   - Create/Edit Product Modals - Comprehensive form with all product attributes and validation
+   - Stock Level Tracking - Real-time stock management with low-stock threshold (≤10 units)
+   - Deactivate/Reactivate Products - Soft delete for product catalog management
+   - Sorting & Pagination - Sort by name, category, price, or stock status with 15/30/45 items per page

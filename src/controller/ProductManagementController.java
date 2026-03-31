@@ -127,6 +127,64 @@ public class ProductManagementController extends BaseController {
     }
     
     /**
+     * Handles POST /admin/products/ - creates a new product.
+     *
+     * @param req the HTTP request object
+     * @param resp the HTTP response object
+     * @param jsonBody the request body as JSON string
+     */
+    private void handleCreateProduct(HttpServletRequest req, HttpServletResponse resp, String jsonBody) {
+        AsyncContext asyncContext = req.startAsync();
+        asyncContext.setTimeout(60000);
+        
+        try {
+            AsyncExecutor.EXECUTOR.submit(() -> {
+                try {
+                    HttpServletRequest request = (HttpServletRequest) asyncContext.getRequest();
+                    HttpServletResponse response = (HttpServletResponse) asyncContext.getResponse();
+                    
+                    String sessionToken = getSessionTokenFromCookie(request);
+                    
+                    Admin currentAdmin = adminService.getCurrentAdmin(sessionToken);
+                    if (currentAdmin == null) {
+                        sendError(response, "Unauthorized", HttpServletResponse.SC_UNAUTHORIZED);
+                        return;
+                    }
+
+                    if (!adminService.hasPermission(currentAdmin, AdminService.PERM_PRODUCT_CREATE)) {
+                        sendError(response, "Permission denied. Requires 'products:create'", 
+                                 HttpServletResponse.SC_FORBIDDEN);
+                        return;
+                    }
+
+                    ProductCreateRequest createReq = parseCreateRequest(jsonBody);
+                    Product product = productService.createProduct(createReq);
+                    
+                    Map<String, Object> data = new HashMap<>();
+                    data.put("productId", product.getProductId());
+                    data.put("productName", product.getProductName());
+                    
+                    sendSuccess(response, "Product created successfully", data);
+                    
+                } catch (Exception e) {
+                    try {
+                        sendError((HttpServletResponse) asyncContext.getResponse(), e.getMessage(), 
+                                 HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+                    } catch (IOException ignored) {}
+                } finally {
+                    asyncContext.complete();
+                }
+            });
+        } catch (RejectedExecutionException ex) {
+            try {
+                sendError(resp, "Server overloaded", HttpServletResponse.SC_SERVICE_UNAVAILABLE);
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
+    }
+       
+    /**
      * Handles GET /admin/products/{id} - retrieves a single product (includes inactive).
      *
      * @param req the HTTP request object
@@ -229,7 +287,7 @@ public class ProductManagementController extends BaseController {
                         return;
                     }
 
-                    ProductSearchRequest searchReq = parseSearchRequestFromJson(jsonBody);
+                    ProductSearchRequest searchReq = parseSearchRequest(jsonBody);
                     Map<String, Object> result = productService.searchProducts(searchReq);
                     
                     sendSuccess(response, result);
@@ -251,65 +309,7 @@ public class ProductManagementController extends BaseController {
             }
         }
     }
-    
-    /**
-     * Handles POST /admin/products/ - creates a new product.
-     *
-     * @param req the HTTP request object
-     * @param resp the HTTP response object
-     * @param jsonBody the request body as JSON string
-     */
-    private void handleCreateProduct(HttpServletRequest req, HttpServletResponse resp, String jsonBody) {
-        AsyncContext asyncContext = req.startAsync();
-        asyncContext.setTimeout(60000);
-        
-        try {
-            AsyncExecutor.EXECUTOR.submit(() -> {
-                try {
-                    HttpServletRequest request = (HttpServletRequest) asyncContext.getRequest();
-                    HttpServletResponse response = (HttpServletResponse) asyncContext.getResponse();
-                    
-                    String sessionToken = getSessionTokenFromCookie(request);
-                    
-                    Admin currentAdmin = adminService.getCurrentAdmin(sessionToken);
-                    if (currentAdmin == null) {
-                        sendError(response, "Unauthorized", HttpServletResponse.SC_UNAUTHORIZED);
-                        return;
-                    }
-
-                    if (!adminService.hasPermission(currentAdmin, AdminService.PERM_PRODUCT_CREATE)) {
-                        sendError(response, "Permission denied. Requires 'products:create'", 
-                                 HttpServletResponse.SC_FORBIDDEN);
-                        return;
-                    }
-
-                    ProductCreateRequest createReq = parseCreateRequest(jsonBody);
-                    Product product = productService.createProduct(createReq);
-                    
-                    Map<String, Object> data = new HashMap<>();
-                    data.put("productId", product.getProductId());
-                    data.put("productName", product.getProductName());
-                    
-                    sendSuccess(response, "Product created successfully", data);
-                    
-                } catch (Exception e) {
-                    try {
-                        sendError((HttpServletResponse) asyncContext.getResponse(), e.getMessage(), 
-                                 HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
-                    } catch (IOException ignored) {}
-                } finally {
-                    asyncContext.complete();
-                }
-            });
-        } catch (RejectedExecutionException ex) {
-            try {
-                sendError(resp, "Server overloaded", HttpServletResponse.SC_SERVICE_UNAVAILABLE);
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
-        }
-    }
-    
+ 
     /**
      * Handles PATCH /admin/products/{id} - updates a product.
      *
@@ -347,66 +347,6 @@ public class ProductManagementController extends BaseController {
                     productService.updateProduct(productId, updateReq);
                     
                     sendSuccess(response, "Product updated successfully", null);
-                    
-                } catch (Exception e) {
-                    try {
-                        sendError((HttpServletResponse) asyncContext.getResponse(), e.getMessage(), 
-                                 HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
-                    } catch (IOException ignored) {}
-                } finally {
-                    asyncContext.complete();
-                }
-            });
-        } catch (RejectedExecutionException ex) {
-            try {
-                sendError(resp, "Server overloaded", HttpServletResponse.SC_SERVICE_UNAVAILABLE);
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
-        }
-    }
-    
-    /**
-     * Handles DELETE /admin/products/{id} - deactivates a product.
-     *
-     * @param req the HTTP request object
-     * @param resp the HTTP response object
-     * @param productId the product ID to deactivate
-     * @param jsonBody the request body with confirmation
-     */
-    private void handleDeleteProduct(HttpServletRequest req, HttpServletResponse resp, 
-                                      String productId, String jsonBody) {
-        AsyncContext asyncContext = req.startAsync();
-        asyncContext.setTimeout(60000);
-        
-        try {
-            AsyncExecutor.EXECUTOR.submit(() -> {
-                try {
-                    HttpServletRequest request = (HttpServletRequest) asyncContext.getRequest();
-                    HttpServletResponse response = (HttpServletResponse) asyncContext.getResponse();
-                    
-                    String sessionToken = getSessionTokenFromCookie(request);
-                    
-                    Admin currentAdmin = adminService.getCurrentAdmin(sessionToken);
-                    if (currentAdmin == null) {
-                        sendError(response, "Unauthorized", HttpServletResponse.SC_UNAUTHORIZED);
-                        return;
-                    }
-
-                    if (!adminService.hasPermission(currentAdmin, AdminService.PERM_PRODUCT_DELETE)) {
-                        sendError(response, "Permission denied. Requires 'products:delete'", 
-                                 HttpServletResponse.SC_FORBIDDEN);
-                        return;
-                    }
-
-                    String confirm = JsonUtil.getString(jsonBody, "confirm");
-                    if (!"DELETE".equals(confirm)) {
-                        throw new IllegalArgumentException("Type 'DELETE' to confirm deletion");
-                    }
-                    
-                    productService.deleteProduct(productId);
-                    
-                    sendSuccess(response, "Product deleted successfully", null);
                     
                 } catch (Exception e) {
                     try {
@@ -485,6 +425,66 @@ public class ProductManagementController extends BaseController {
             }
         }
     }
+    
+    /**
+     * Handles DELETE /admin/products/{id} - deactivates a product.
+     *
+     * @param req the HTTP request object
+     * @param resp the HTTP response object
+     * @param productId the product ID to deactivate
+     * @param jsonBody the request body with confirmation
+     */
+    private void handleDeleteProduct(HttpServletRequest req, HttpServletResponse resp, 
+                                      String productId, String jsonBody) {
+        AsyncContext asyncContext = req.startAsync();
+        asyncContext.setTimeout(60000);
+        
+        try {
+            AsyncExecutor.EXECUTOR.submit(() -> {
+                try {
+                    HttpServletRequest request = (HttpServletRequest) asyncContext.getRequest();
+                    HttpServletResponse response = (HttpServletResponse) asyncContext.getResponse();
+                    
+                    String sessionToken = getSessionTokenFromCookie(request);
+                    
+                    Admin currentAdmin = adminService.getCurrentAdmin(sessionToken);
+                    if (currentAdmin == null) {
+                        sendError(response, "Unauthorized", HttpServletResponse.SC_UNAUTHORIZED);
+                        return;
+                    }
+
+                    if (!adminService.hasPermission(currentAdmin, AdminService.PERM_PRODUCT_DELETE)) {
+                        sendError(response, "Permission denied. Requires 'products:delete'", 
+                                 HttpServletResponse.SC_FORBIDDEN);
+                        return;
+                    }
+
+                    String confirm = JsonUtil.getString(jsonBody, "confirm");
+                    if (!"DELETE".equals(confirm)) {
+                        throw new IllegalArgumentException("Type 'DELETE' to confirm deletion");
+                    }
+                    
+                    productService.deleteProduct(productId);
+                    
+                    sendSuccess(response, "Product deleted successfully", null);
+                    
+                } catch (Exception e) {
+                    try {
+                        sendError((HttpServletResponse) asyncContext.getResponse(), e.getMessage(), 
+                                 HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+                    } catch (IOException ignored) {}
+                } finally {
+                    asyncContext.complete();
+                }
+            });
+        } catch (RejectedExecutionException ex) {
+            try {
+                sendError(resp, "Server overloaded", HttpServletResponse.SC_SERVICE_UNAVAILABLE);
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
+    }
 
     /**
      * Validates product ID format.
@@ -544,6 +544,68 @@ public class ProductManagementController extends BaseController {
     }
     
     /**
+     * Parses JSON into ProductSearchRequest object for admin search.
+     *
+     * @param json the JSON string
+     * @return populated ProductSearchRequest object
+     */
+    private ProductSearchRequest parseSearchRequest(String json) {
+        ProductSearchRequest searchReq = new ProductSearchRequest();
+        searchReq.setKeyword(JsonUtil.getString(json, "keyword"));
+        searchReq.setCategory(JsonUtil.getString(json, "category"));
+        searchReq.setAgeGroup(JsonUtil.getString(json, "ageGroup"));
+        searchReq.setGender(JsonUtil.getString(json, "gender"));
+        searchReq.setSeasonality(JsonUtil.getString(json, "seasonality"));
+        
+        String minPrice = JsonUtil.getString(json, "minPrice");
+        if (minPrice != null) {
+            try {
+                searchReq.setMinPrice(Double.parseDouble(minPrice));
+            } catch (NumberFormatException ignored) {}
+        }
+        
+        String maxPrice = JsonUtil.getString(json, "maxPrice");
+        if (maxPrice != null) {
+            try {
+                searchReq.setMaxPrice(Double.parseDouble(maxPrice));
+            } catch (NumberFormatException ignored) {}
+        }
+        
+        String inStock = JsonUtil.getString(json, "inStock");
+        if (inStock != null) {
+            searchReq.setInStock(Boolean.parseBoolean(inStock));
+        }
+
+        String lowStock = JsonUtil.getString(json, "lowStock");
+        if (lowStock != null) {
+            searchReq.setLowStock(Boolean.parseBoolean(lowStock));
+        }
+
+        String showInactive = JsonUtil.getString(json, "showInactive");
+        if (showInactive != null) {
+            searchReq.setShowInactive(Boolean.parseBoolean(showInactive));
+        }
+        
+        searchReq.setSortBy(JsonUtil.getString(json, "sortBy"));
+        searchReq.setSortDir(JsonUtil.getString(json, "sortDir"));
+        
+        String page = JsonUtil.getString(json, "page");
+        if (page != null) {
+            try {
+                searchReq.setPage(Integer.parseInt(page));
+            } catch (NumberFormatException ignored) {}
+        }
+        
+        String size = JsonUtil.getString(json, "size");
+        if (size != null) {
+            try {
+                searchReq.setSize(Integer.parseInt(size));
+            } catch (NumberFormatException ignored) {}
+        }
+        
+        return searchReq;
+    }
+    /**
      * Parses JSON into ProductUpdateRequest object.
      *
      * @param json the JSON string
@@ -587,63 +649,5 @@ public class ProductManagementController extends BaseController {
         req.setSeasonality(JsonUtil.getString(json, "seasonality"));
         
         return req;
-    }
-    
-    /**
-     * Parses JSON into ProductSearchRequest object for admin search.
-     *
-     * @param json the JSON string
-     * @return populated ProductSearchRequest object
-     */
-    private ProductSearchRequest parseSearchRequestFromJson(String json) {
-        ProductSearchRequest searchReq = new ProductSearchRequest();
-        searchReq.setKeyword(JsonUtil.getString(json, "keyword"));
-        searchReq.setCategory(JsonUtil.getString(json, "category"));
-        searchReq.setAgeGroup(JsonUtil.getString(json, "ageGroup"));
-        searchReq.setGender(JsonUtil.getString(json, "gender"));
-        searchReq.setSeasonality(JsonUtil.getString(json, "seasonality"));
-        
-        String minPrice = JsonUtil.getString(json, "minPrice");
-        if (minPrice != null) {
-            try {
-                searchReq.setMinPrice(Double.parseDouble(minPrice));
-            } catch (NumberFormatException ignored) {}
-        }
-        
-        String maxPrice = JsonUtil.getString(json, "maxPrice");
-        if (maxPrice != null) {
-            try {
-                searchReq.setMaxPrice(Double.parseDouble(maxPrice));
-            } catch (NumberFormatException ignored) {}
-        }
-        
-        String inStock = JsonUtil.getString(json, "inStock");
-        if (inStock != null) {
-            searchReq.setInStock(Boolean.parseBoolean(inStock));
-        }
-
-        String showInactive = JsonUtil.getString(json, "showInactive");
-        if (showInactive != null) {
-            searchReq.setShowInactive(Boolean.parseBoolean(showInactive));
-        }
-        
-        searchReq.setSortBy(JsonUtil.getString(json, "sortBy"));
-        searchReq.setSortDir(JsonUtil.getString(json, "sortDir"));
-        
-        String page = JsonUtil.getString(json, "page");
-        if (page != null) {
-            try {
-                searchReq.setPage(Integer.parseInt(page));
-            } catch (NumberFormatException ignored) {}
-        }
-        
-        String size = JsonUtil.getString(json, "size");
-        if (size != null) {
-            try {
-                searchReq.setSize(Integer.parseInt(size));
-            } catch (NumberFormatException ignored) {}
-        }
-        
-        return searchReq;
     }
 }

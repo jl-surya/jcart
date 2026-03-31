@@ -90,6 +90,91 @@ public class ProductService {
         
         return product;
     }
+
+    /**
+     * Searches products with filters and pagination.
+     *
+     * @param request the search request with filters and pagination
+     * @return map containing products, page, size, total, totalPages
+     * @throws Exception if database operation fails
+     */
+    public Map<String, Object> searchProducts(ProductSearchRequest request) throws Exception {
+        int page = request.getPageOrDefault();
+        int size = request.getSizeOrDefault();
+        int offset = (page - 1) * size;
+        
+        List<Product> products = productDAO.getAll(
+            request.getKeyword(),
+            request.getCategory(),
+            request.getAgeGroup(),
+            request.getGender(),
+            request.getSeasonality(),
+            request.getMinPrice(),
+            request.getMaxPrice(),
+            request.getInStock(),
+            request.getLowStock(),
+            request.getShowInactive(),
+            request.getSortByOrDefault(),
+            request.getSortDirOrDefault(),
+            offset,
+            size
+        );
+        
+        int total = productDAO.getAllCount(
+            request.getKeyword(),
+            request.getCategory(),
+            request.getAgeGroup(),
+            request.getGender(),
+            request.getSeasonality(),
+            request.getMinPrice(),
+            request.getMaxPrice(),
+            request.getInStock(),
+            request.getLowStock(),
+            request.getShowInactive()
+        );
+        
+        Map<String, Integer> stats = productDAO.getStats(
+            request.getKeyword(),
+            request.getCategory(),
+            request.getAgeGroup(),
+            request.getGender(),
+            request.getSeasonality(),
+            request.getMinPrice(),
+            request.getMaxPrice(),
+            request.getInStock(),
+            request.getLowStock(),
+            request.getShowInactive()
+        );
+        
+        Map<String, Object> result = new HashMap<>();
+        result.put("products", products);
+        result.put("page", page);
+        result.put("size", size);
+        result.put("total", total);
+        result.put("totalPages", (int) Math.ceil((double) total / size));
+        result.put("activeCount", stats.getOrDefault("activeCount", 0));
+        result.put("inactiveCount", stats.getOrDefault("inactiveCount", 0));
+        result.put("lowStockCount", stats.getOrDefault("lowStockCount", 0));
+        
+        return result;
+    }
+
+    /**
+     * Gets available filter options for product search UI.
+     *
+     * @param onlyActive if true, only returns options from active products
+     * @return map of filter categories with their available values
+     * @throws Exception if database operation fails
+     */
+    public Map<String, List<String>> getFilterOptions(boolean onlyActive) throws Exception {
+        Map<String, List<String>> options = new HashMap<>();
+        options.put("categories", productDAO.getCategories(onlyActive));
+        options.put("ageGroups", productDAO.getAgeGroups(onlyActive));
+        options.put("genders", productDAO.getGenders(onlyActive));
+        options.put("seasonality", java.util.Arrays.asList("Yes", "No"));
+        options.put("locations", productDAO.getLocations(onlyActive));
+        return options;
+    }
     
     /**
      * Updates product information (partial updates supported).
@@ -118,19 +203,19 @@ public class ProductService {
         productDAO.update(product);
         return product;
     }
-    
+
     /**
-     * Deactivates a product (soft delete).
+     * Updates product stock level.
      *
-     * @param productId the product ID to deactivate
-     * @throws Exception if product not found or already inactive
+     * @param productId the product ID
+     * @param quantity the new quantity (must be positive)
+     * @throws Exception if product not found or quantity invalid
      */
-    public void deleteProduct(String productId) throws Exception {
-        Product product = getProduct(productId);
-        if (!product.isActive()) {
-            throw new IllegalArgumentException("Product is already inactive");
+    public void updateStock(String productId, int quantity) throws Exception {
+        if (quantity <= 0) {
+            throw new IllegalArgumentException("Quantity must be positive");
         }
-        productDAO.deactivate(productId);
+        productDAO.updateStock(productId, quantity);
     }
 
     /**
@@ -146,88 +231,21 @@ public class ProductService {
         }
         productDAO.activate(productId);
     }
-
-    /**
-     * Searches products with filters and pagination.
-     *
-     * @param request the search request with filters and pagination
-     * @return map containing products, page, size, total, totalPages
-     * @throws Exception if database operation fails
-     */
-    public Map<String, Object> searchProducts(ProductSearchRequest request) throws Exception {
-        int page = request.getPageOrDefault();
-        int size = request.getSizeOrDefault();
-        int offset = (page - 1) * size;
-        
-        List<Product> products = productDAO.search(
-            request.getKeyword(),
-            request.getCategory(),
-            request.getAgeGroup(),
-            request.getGender(),
-            request.getSeasonality(),
-            request.getMinPrice(),
-            request.getMaxPrice(),
-            request.getInStock(),
-            request.getShowInactive(),
-            request.getSortByOrDefault(),
-            request.getSortDirOrDefault(),
-            offset,
-            size
-        );
-        
-        int total = productDAO.countSearch(
-            request.getKeyword(),
-            request.getCategory(),
-            request.getAgeGroup(),
-            request.getGender(),
-            request.getSeasonality(),
-            request.getMinPrice(),
-            request.getMaxPrice(),
-            request.getInStock(),
-            request.getShowInactive()
-        );
-        
-        Map<String, Object> result = new HashMap<>();
-        result.put("products", products);
-        result.put("page", page);
-        result.put("size", size);
-        result.put("total", total);
-        result.put("totalPages", (int) Math.ceil((double) total / size));
-        
-        return result;
-    }    
-
-    /**
-     * Gets available filter options for product search UI.
-     *
-     * @param onlyActive if true, only returns options from active products
-     * @return map of filter categories with their available values
-     * @throws Exception if database operation fails
-     */
-    public Map<String, List<String>> getFilterOptions(boolean onlyActive) throws Exception {
-        Map<String, List<String>> options = new HashMap<>();
-        options.put("categories", productDAO.getCategories(onlyActive));
-        options.put("ageGroups", productDAO.getAgeGroups(onlyActive));
-        options.put("genders", productDAO.getGenders(onlyActive));
-        options.put("seasonality", java.util.Arrays.asList("Yes", "No"));
-        options.put("locations", productDAO.getLocations(onlyActive));
-        return options;
-    }
     
     /**
-     * Updates product stock level.
+     * Deactivates a product (soft delete).
      *
-     * @param productId the product ID
-     * @param quantity the new quantity (must be positive)
-     * @throws Exception if product not found or quantity invalid
+     * @param productId the product ID to deactivate
+     * @throws Exception if product not found or already inactive
      */
-    public void updateStock(String productId, int quantity) throws Exception {
-        if (quantity <= 0) {
-            throw new IllegalArgumentException("Quantity must be positive");
+    public void deleteProduct(String productId) throws Exception {
+        Product product = getProduct(productId);
+        if (!product.isActive()) {
+            throw new IllegalArgumentException("Product is already inactive");
         }
-        productDAO.updateStock(productId, quantity);
+        productDAO.deactivate(productId);
     }
-    
+
     /**
      * Validates product creation request.
      *

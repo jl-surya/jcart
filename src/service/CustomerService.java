@@ -2,7 +2,10 @@ package service;
 
 import dao.CustomerDAO;
 import dao.SessionDAO;
+import dto.CustomerSearchRequest;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import model.Customer;
 import model.Session;
@@ -151,6 +154,63 @@ public class CustomerService {
     }
     
     /**
+     * Retrieves customer by ID.
+     *
+     * @param id the customer ID
+     * @return Customer object if found, null otherwise
+     * @throws Exception if database operation fails
+     */
+    public Customer getCustomerById(String id) throws Exception {
+        if (id == null || id.isBlank()) {
+            return null;
+        }
+        return customerDAO.getById(id);
+    }
+    
+    /**
+     * Searches and retrieves customers with filters, pagination, and sorting.
+     * Consolidated method following product management pattern.
+     *
+     * @param request search request with filters and pagination
+     * @return map containing customers, pagination info, and stats
+     * @throws Exception if database operation fails
+     */
+    public Map<String, Object> searchCustomers(CustomerSearchRequest request) throws Exception {
+        int page = request.getPageOrDefault();
+        int size = request.getSizeOrDefault();
+        
+        List<Customer> customers = customerDAO.getAll(
+            page, 
+            size, 
+            request.getSearch(), 
+            request.getStatus(), 
+            request.getSortBy(), 
+            request.getSortDir()
+        );
+        
+        int total = customerDAO.getAllCount(
+            request.getSearch(), 
+            request.getStatus()
+        );
+        
+        Map<String, Integer> stats = customerDAO.getStats(
+            request.getSearch(),
+            request.getStatus()
+        );
+        
+        Map<String, Object> result = new HashMap<>();
+        result.put("customers", customers);
+        result.put("page", page);
+        result.put("size", size);
+        result.put("total", total);
+        result.put("totalPages", (int) Math.ceil((double) total / size));
+        result.put("activeCount", stats.getOrDefault("activeCount", 0));
+        result.put("inactiveCount", stats.getOrDefault("inactiveCount", 0));
+        
+        return result;
+    }
+    
+    /**
      * Updates customer profile information.
      *
      * @param sessionToken the session token
@@ -231,45 +291,7 @@ public class CustomerService {
         sessionDAO.deleteAllForUser(customer.getCustomerId(), "CUSTOMER");
         SessionCache.removeByToken(sessionToken);
     }
-    
-    /**
-     * Retrieves paginated list of all customers.
-     *
-     * @param page the page number (1-indexed)
-     * @param size the number of records per page
-     * @return list of customers
-     * @throws Exception if database operation fails
-     */
-    public List<Customer> getCustomers(int page, int size) throws Exception {
-        return customerDAO.getAll(page, size);
-    }
-    
-    /**
-     * Retrieves paginated list of active customers.
-     *
-     * @param page the page number (1-indexed)
-     * @param size the number of records per page
-     * @return list of active customers
-     * @throws Exception if database operation fails
-     */
-    public List<Customer> getActiveCustomers(int page, int size) throws Exception {
-        return customerDAO.getAllActive(page, size);
-    }
-    
-    /**
-     * Retrieves customer by ID.
-     *
-     * @param id the customer ID
-     * @return Customer object if found, null otherwise
-     * @throws Exception if database operation fails
-     */
-    public Customer getCustomerById(String id) throws Exception {
-        if (id == null || id.isBlank()) {
-            return null;
-        }
-        return customerDAO.getById(id);
-    }
-    
+
     /**
      * Deactivates a customer by ID (admin operation).
      *
@@ -287,25 +309,5 @@ public class CustomerService {
         }
         
         customerDAO.deactivate(customerId);
-    }
-    
-    /**
-     * Gets total count of all customers.
-     *
-     * @return total customer count
-     * @throws Exception if database operation fails
-     */
-    public int getTotalCustomers() throws Exception {
-        return customerDAO.getTotalCount();
-    }
-    
-    /**
-     * Gets count of active customers.
-     *
-     * @return active customer count
-     * @throws Exception if database operation fails
-     */
-    public int getActiveCustomersCount() throws Exception {
-        return customerDAO.getActiveCount();
     }
 }
