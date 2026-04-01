@@ -56,52 +56,52 @@ JCart/
 │   ├── controller/
 │   │   ├── AddressController.java                  # Customer address management
 │   │   ├── AdminController.java                    # Admin endpoints (login, profile, password)
-│   │   ├── AdminManagementController.java          # Admin CRUD operations for admins
-│   │   ├── OrderManagementController.java          # Order management for admins
-│   │   ├── TransactionManagementController.java    # Transaction management (payments & refunds) for admins
+│   │   ├── AdminManagementController.java          # Admin management for admins (CRUD, search, stats)
 │   │   ├── BaseController.java                     # Base controller with common methods
 │   │   ├── CartController.java                     # Customer cart management
 │   │   ├── CustomerController.java                 # Customer endpoints (register, login, profile)
-│   │   ├── CustomerManagementController.java       # Customer management for admins
-│   │   ├── OrderController.java                    # Customer order endpoints
+│   │   ├── CustomerManagementController.java       # Customer management for admins (search, view, deactivate)
+│   │   ├── OrderController.java                    # Customer order endpoints (search, view, cancel, update address)
+│   │   ├── OrderManagementController.java          # Order management for admins (search, view, update status)
 │   │   ├── ProductController.java                  # Customer product endpoints (search, view)
-│   │   ├── ProductManagementController.java        # Product management for admins
-│   │   └── TransactionController.java              # Customer transaction viewing
+│   │   ├── ProductManagementController.java        # Product management for admins (CRUD, search, stats)
+│   │   ├── TransactionController.java              # Customer transaction viewing (search, view)
+│   │   └── TransactionManagementController.java    # Transaction management for admins (search, view, stats, refund actions)
 │   ├── dao/
 │   │   ├── AddressDAO.java                         # Address database operations
-│   │   ├── AdminDAO.java                           # Admin database operations
+│   │   ├── AdminDAO.java                           # Admin database operations with search filters
 │   │   ├── CartDAO.java                            # Cart database operations
-│   │   ├── CustomerDAO.java                        # Customer database operations
-│   │   ├── OrderDAO.java                           # Order database operations with pagination
+│   │   ├── CustomerDAO.java                        # Customer database operations with search filters
+│   │   ├── OrderDAO.java                           # Order database operations with search filters
 │   │   ├── OrderItemDAO.java                       # Order items database operations
 │   │   ├── ProductDAO.java                         # Product database operations with search filters
 │   │   ├── SessionDAO.java                         # Session database operations
-│   │   └── TransactionDAO.java                     # Transaction database operations
+│   │   └── TransactionDAO.java                     # Transaction database operations with search filters
 │   ├── dto/
 │   │   ├── AddressRequest.java                     # Address create/update DTO
 │   │   ├── AdminLoginRequest.java                  # Admin login DTO
 │   │   ├── AdminRegisterRequest.java               # Admin registration DTO
-│   │   ├── AdminSearchRequest.java                 # Admin search filters DTO
+│   │   ├── AdminSearchRequest.java                 # Admin search/filters DTO
 │   │   ├── AdminUpdateRequest.java                 # Admin profile update DTO
 │   │   ├── ApiResponse.java                        # Standard API response wrapper
-│   │   ├── CartItemRequest.java                    # Add to cart DTO
+│   │   ├── CartItemCreateRequest.java              # Add to cart DTO
+│   │   ├── CartItemUpdateRequest.java              # Update cart quantity DTO
 │   │   ├── CustomerLoginRequest.java               # Customer login DTO
 │   │   ├── CustomerRegisterRequest.java            # Customer registration DTO
-│   │   ├── CustomerSearchRequest.java              # Customer search filters DTO
+│   │   ├── CustomerSearchRequest.java              # Customer search/filters DTO
 │   │   ├── CustomerUpdateRequest.java              # Customer profile update DTO
 │   │   ├── DirectOrderRequest.java                 # Direct buy now order DTO
-│   │   ├── OrderFilterRequest.java                 # Order list filters DTO
+│   │   ├── OrderAddressUpdateRequest.java          # Update order address DTO
 │   │   ├── OrderRequest.java                       # Create order from cart DTO
 │   │   ├── OrderResponse.java                      # Order details response with invoice
+│   │   ├── OrderSearchRequest.java                 # Order search/filters DTO
 │   │   ├── OrderStatusUpdateRequest.java           # Order status update DTO
 │   │   ├── PasswordChangeRequest.java              # Password change DTO
 │   │   ├── ProductCreateRequest.java               # Product creation DTO
-│   │   ├── ProductSearchRequest.java               # Product search filters DTO
+│   │   ├── ProductSearchRequest.java               # Product search/filters DTO
 │   │   ├── ProductUpdateRequest.java               # Product update DTO
 │   │   ├── TransactionActionRequest.java           # Refund approve/reject DTO
-│   │   ├── TransactionFilterRequest.java           # Transaction list filters DTO
-│   │   ├── UpdateCartItemRequest.java              # Update cart quantity DTO
-│   │   └── UpdateOrderAddressRequest.java          # Update order address DTO
+│   │   └── TransactionSearchRequest.java           # Transaction search/filters DTO
 │   ├── filter/
 │   │   ├── AdminAuthFilter.java                    # Authentication filter for admin endpoints
 │   │   └── CustomerAuthFilter.java                 # Authentication filter for customer endpoints
@@ -119,13 +119,13 @@ JCart/
 │   │   └── Transaction.java                        # Transaction entity (payment & refund)
 │   ├── service/
 │   │   ├── AddressService.java                     # Address business logic
-│   │   ├── AdminService.java                       # Admin business logic
+│   │   ├── AdminService.java                       # Admin business logic with search & stats
 │   │   ├── CartService.java                        # Cart business logic
-│   │   ├── CustomerService.java                    # Customer business logic
-│   │   ├── OrderService.java                       # Order business logic (atomic operations)
+│   │   ├── CustomerService.java                    # Customer business logic with search & stats
+│   │   ├── OrderService.java                       # Order business logic with search & stats
 │   │   ├── PaymentGateway.java                     # Mock payment gateway
-│   │   ├── ProductService.java                     # Product business logic with search & filters
-│   │   └── TransactionService.java                 # Transaction & refund business logic
+│   │   ├── ProductService.java                     # Product business logic with search & stats
+│   │   └── TransactionService.java                 # Transaction business logic with search & stats
 │   └── util/
 │       ├── DBUtil.java                             # Database connection utility
 │       ├── JsonUtil.java                           # JSON serialization/deserialization
@@ -337,7 +337,9 @@ views/
     │   ├── dashboard/                          # Admin dashboard with quick actions
     │   ├── adminMt/                            # Admin management (CRUD for admins)
     │   ├── customerMt/                         # Customer management for admins
-    │   └── productMt/                          # Product management for admins
+    │   ├── orderMt/                            # Order management for admins
+    │   ├── productMt/                          # Product management for admins
+    │   └── transactionMt/                      # Transaction management for admins
     ├── products/customer/                      # Product browsing & viewing
     │   ├── search/                             # Product search & listing page
     │   └── detail/                             # Individual product detail page
@@ -408,3 +410,16 @@ views/
    - Stock Level Tracking - Real-time stock management with low-stock threshold (≤10 units)
    - Deactivate/Reactivate Products - Soft delete for product catalog management
    - Sorting & Pagination - Sort by name, category, price, or stock status with 15/30/45 items per page
+
+6. Order & Transaction Management for Admins
+   - Order Management Page (orderMt) - Complete order oversight with search, filters, and status updates
+   - Order Search & Filters - Filter by order status, payment status, date range, and amount range
+   - Order Statistics - Real-time counts by status (pending, processing, shipped, delivered, cancelled) based on filtered data
+   - Order Status Updates - Update order status to shipped or delivered with permission checks
+   - Order Details View - Comprehensive order view with customer info, items, shipping address, and payment details
+   - Transaction Management Page (transactionMt) - Payment and refund tracking with search and filters
+   - Transaction Search & Filters - Filter by transaction type, payment status, payment method, and date range
+   - Transaction Statistics - Dynamic counts showing total transactions, payments, refunds, and pending refunds
+   - Refund Actions - Approve or reject refund requests with automatic status updates and transaction audit trail
+   - Transaction Details View - Complete transaction information including order reference, amount, method, and status timeline
+   - Sorting & Pagination - Sort by date, amount, or status with 15/30/45 items per page

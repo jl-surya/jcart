@@ -1,8 +1,8 @@
 package controller;
 
 import config.AsyncExecutor;
-import dto.CartItemRequest;
-import dto.UpdateCartItemRequest;
+import dto.CartItemCreateRequest;
+import dto.CartItemUpdateRequest;
 import jakarta.servlet.AsyncContext;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.annotation.WebServlet;
@@ -235,7 +235,7 @@ public class CartController extends BaseController {
                         return;
                     }
                     
-                    CartItemRequest cartRequest = parseCartItemRequest(jsonBody);
+                    CartItemCreateRequest cartRequest = parseCartItemRequest(jsonBody);
                     if (cartRequest.getProductId() == null || cartRequest.getQuantity() == null) {
                         throw new IllegalArgumentException("Product ID and quantity are required");
                     }
@@ -296,7 +296,7 @@ public class CartController extends BaseController {
                         return;
                     }
                     
-                    UpdateCartItemRequest updateRequest = parseUpdateRequest(jsonBody);
+                    CartItemUpdateRequest updateRequest = parseUpdateRequest(jsonBody);
                     if (updateRequest.getQuantity() == null) {
                         throw new IllegalArgumentException("Quantity is required");
                     }
@@ -415,13 +415,13 @@ public class CartController extends BaseController {
     }
     
     /**
-     * Parses JSON into CartItemRequest object.
+     * Parses JSON into CartItemCreateRequest object.
      *
      * @param json the JSON string
-     * @return populated CartItemRequest object
+     * @return populated CartItemCreateRequest object
      */
-    private CartItemRequest parseCartItemRequest(String json) {
-        CartItemRequest req = new CartItemRequest();
+    private CartItemCreateRequest parseCartItemRequest(String json) {
+        CartItemCreateRequest req = new CartItemCreateRequest();
         req.setProductId(JsonUtil.getString(json, "productId"));
         
         String quantity = JsonUtil.getString(json, "quantity");
@@ -435,13 +435,13 @@ public class CartController extends BaseController {
     }
     
     /**
-     * Parses JSON into UpdateCartItemRequest object.
+     * Parses JSON into CartItemUpdateRequest object.
      *
      * @param json the JSON string
-     * @return populated UpdateCartItemRequest object
+     * @return populated CartItemUpdateRequest object
      */
-    private UpdateCartItemRequest parseUpdateRequest(String json) {
-        UpdateCartItemRequest req = new UpdateCartItemRequest();
+    private CartItemUpdateRequest parseUpdateRequest(String json) {
+        CartItemUpdateRequest req = new CartItemUpdateRequest();
         
         String quantity = JsonUtil.getString(json, "quantity");
         if (quantity != null) {

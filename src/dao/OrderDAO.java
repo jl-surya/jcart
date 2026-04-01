@@ -1,6 +1,6 @@
 package dao;
 
-import dto.OrderFilterRequest;
+import dto.OrderSearchRequest;
 import java.math.BigDecimal;
 import java.sql.*;
 import java.util.ArrayList;
@@ -64,31 +64,7 @@ public class OrderDAO {
             }
         }
     }
-
-    /**
-     * Updates shipping address for an order.
-     *
-     * @param order the order with updated shipping details
-     * @throws Exception if database operation fails
-     */
-    public void updateShippingAddress(Order order) throws Exception {
-        String sql = "UPDATE orders SET shipping_name = ?, shipping_address_line = ?, shipping_city = ?, " +
-                    "shipping_state = ?, shipping_postal_code = ?, shipping_country = ?, updated_at = CURRENT_TIMESTAMP " +
-                    "WHERE order_id = ?";
-        
-        try (Connection conn = DBUtil.getConnection();
-            PreparedStatement ps = conn.prepareStatement(sql)) {
-            ps.setString(1, order.getShippingName());
-            ps.setString(2, order.getShippingAddressLine());
-            ps.setString(3, order.getShippingCity());
-            ps.setString(4, order.getShippingState());
-            ps.setString(5, order.getShippingPostalCode());
-            ps.setString(6, order.getShippingCountry());
-            ps.setLong(7, order.getOrderId());
-            ps.executeUpdate();
-        }
-    }
-    
+ 
     /**
      * Retrieves order by ID.
      *
@@ -113,85 +89,17 @@ public class OrderDAO {
         }
         return null;
     }
-    
+
     /**
-     * Retrieves orders for a specific customer with filters.
+     * Retrieves orders with filters and pagination.
      *
-     * @param customerId the customer ID
-     * @param filter the filter criteria
+     * @param filter the search request with filter criteria
      * @param offset pagination offset
      * @param limit pagination limit
-     * @return list of orders
+     * @return list of orders matching criteria
      * @throws Exception if database operation fails
      */
-    public List<Order> getByCustomerId(String customerId, OrderFilterRequest filter, int offset, int limit) throws Exception {
-        StringBuilder sql = new StringBuilder();
-        sql.append("SELECT order_id, customer_id, order_status, payment_status, total_amount, ")
-           .append("shipping_name, shipping_address_line, shipping_city, shipping_state, shipping_postal_code, ")
-           .append("shipping_country, invoice_number, created_at, updated_at, cancelled_at, cancelled_by, payment_deadline ")
-           .append("FROM orders WHERE customer_id = ? ");
-        
-        List<Object> params = new ArrayList<>();
-        params.add(customerId);
-        
-        if (filter.getStatus() != null && !filter.getStatus().isEmpty()) {
-            sql.append("AND order_status = ? ");
-            params.add(filter.getStatus());
-        }
-        
-        if (filter.getFromDate() != null) {
-            sql.append("AND created_at >= ? ");
-            params.add(Timestamp.valueOf(filter.getFromDate() + " 00:00:00"));
-        }
-        
-        if (filter.getToDate() != null) {
-            sql.append("AND created_at <= ? ");
-            params.add(Timestamp.valueOf(filter.getToDate() + " 23:59:59"));
-        }
-        
-        if (filter.getMinAmount() != null) {
-            sql.append("AND total_amount >= ? ");
-            params.add(BigDecimal.valueOf(filter.getMinAmount()));
-        }
-        
-        if (filter.getMaxAmount() != null) {
-            sql.append("AND total_amount <= ? ");
-            params.add(BigDecimal.valueOf(filter.getMaxAmount()));
-        }
-        
-        String validSortBy = validateSortColumn(filter.getSortByOrDefault());
-        String validSortDir = filter.getSortDirOrDefault();
-        sql.append(" ORDER BY ").append(validSortBy).append(" ").append(validSortDir);
-        sql.append(" LIMIT ? OFFSET ?");
-        params.add(limit);
-        params.add(offset);
-        
-        List<Order> orders = new ArrayList<>();
-        
-        try (Connection conn = DBUtil.getConnection();
-             PreparedStatement ps = conn.prepareStatement(sql.toString())) {
-            for (int i = 0; i < params.size(); i++) {
-                ps.setObject(i + 1, params.get(i));
-            }
-            try (ResultSet rs = ps.executeQuery()) {
-                while (rs.next()) {
-                    orders.add(mapRow(rs));
-                }
-            }
-        }
-        return orders;
-    }
-    
-    /**
-     * Retrieves all orders with filters (admin view).
-     *
-     * @param filter the filter criteria
-     * @param offset pagination offset
-     * @param limit pagination limit
-     * @return list of orders
-     * @throws Exception if database operation fails
-     */
-    public List<Order> getAll(OrderFilterRequest filter, int offset, int limit) throws Exception {
+    public List<Order> getAll(OrderSearchRequest filter, int offset, int limit) throws Exception {
         StringBuilder sql = new StringBuilder();
         sql.append("SELECT order_id, customer_id, order_status, payment_status, total_amount, ")
            .append("shipping_name, shipping_address_line, shipping_city, shipping_state, shipping_postal_code, ")
@@ -200,6 +108,13 @@ public class OrderDAO {
         
         List<Object> params = new ArrayList<>();
         
+        if (filter.getKeyword() != null && !filter.getKeyword().isEmpty()) {
+            sql.append("AND (CAST(customer_id AS TEXT) LIKE ? OR LOWER(invoice_number) LIKE LOWER(?)) ");
+            String searchPattern = "%" + filter.getKeyword() + "%";
+            params.add(searchPattern);
+            params.add(searchPattern);
+        }
+        
         if (filter.getCustomerId() != null && !filter.getCustomerId().isEmpty()) {
             sql.append("AND customer_id = ? ");
             params.add(filter.getCustomerId());
@@ -208,6 +123,11 @@ public class OrderDAO {
         if (filter.getStatus() != null && !filter.getStatus().isEmpty()) {
             sql.append("AND order_status = ? ");
             params.add(filter.getStatus());
+        }
+        
+        if (filter.getPaymentStatus() != null && !filter.getPaymentStatus().isEmpty()) {
+            sql.append("AND payment_status = ? ");
+            params.add(filter.getPaymentStatus());
         }
         
         if (filter.getFromDate() != null) {
@@ -252,73 +172,26 @@ public class OrderDAO {
         }
         return orders;
     }
-    
+
     /**
-     * Counts orders for a specific customer with filters.
+     * Counts orders matching search criteria.
      *
-     * @param customerId the customer ID
-     * @param filter the filter criteria
-     * @return total count
+     * @param filter the search request with filter criteria
+     * @return total count of matching orders
      * @throws Exception if database operation fails
      */
-    public int countByCustomerId(String customerId, OrderFilterRequest filter) throws Exception {
-        StringBuilder sql = new StringBuilder();
-        sql.append("SELECT COUNT(*) FROM orders WHERE customer_id = ? ");
-        
-        List<Object> params = new ArrayList<>();
-        params.add(customerId);
-        
-        if (filter.getStatus() != null && !filter.getStatus().isEmpty()) {
-            sql.append("AND order_status = ? ");
-            params.add(filter.getStatus());
-        }
-        
-        if (filter.getFromDate() != null) {
-            sql.append("AND created_at >= ? ");
-            params.add(Timestamp.valueOf(filter.getFromDate() + " 00:00:00"));
-        }
-        
-        if (filter.getToDate() != null) {
-            sql.append("AND created_at <= ? ");
-            params.add(Timestamp.valueOf(filter.getToDate() + " 23:59:59"));
-        }
-        
-        if (filter.getMinAmount() != null) {
-            sql.append("AND total_amount >= ? ");
-            params.add(BigDecimal.valueOf(filter.getMinAmount()));
-        }
-        
-        if (filter.getMaxAmount() != null) {
-            sql.append("AND total_amount <= ? ");
-            params.add(BigDecimal.valueOf(filter.getMaxAmount()));
-        }
-        
-        try (Connection conn = DBUtil.getConnection();
-             PreparedStatement ps = conn.prepareStatement(sql.toString())) {
-            for (int i = 0; i < params.size(); i++) {
-                ps.setObject(i + 1, params.get(i));
-            }
-            try (ResultSet rs = ps.executeQuery()) {
-                if (rs.next()) {
-                    return rs.getInt(1);
-                }
-            }
-        }
-        return 0;
-    }
-    
-    /**
-     * Counts all orders with filters (admin view).
-     *
-     * @param filter the filter criteria
-     * @return total count
-     * @throws Exception if database operation fails
-     */
-    public int countAll(OrderFilterRequest filter) throws Exception {
+    public int getAllCount(OrderSearchRequest filter) throws Exception {
         StringBuilder sql = new StringBuilder();
         sql.append("SELECT COUNT(*) FROM orders WHERE 1=1 ");
         
         List<Object> params = new ArrayList<>();
+        
+        if (filter.getKeyword() != null && !filter.getKeyword().isEmpty()) {
+            sql.append("AND (CAST(customer_id AS TEXT) LIKE ? OR LOWER(invoice_number) LIKE LOWER(?)) ");
+            String searchPattern = "%" + filter.getKeyword() + "%";
+            params.add(searchPattern);
+            params.add(searchPattern);
+        }
         
         if (filter.getCustomerId() != null && !filter.getCustomerId().isEmpty()) {
             sql.append("AND customer_id = ? ");
@@ -330,6 +203,11 @@ public class OrderDAO {
             params.add(filter.getStatus());
         }
         
+        if (filter.getPaymentStatus() != null && !filter.getPaymentStatus().isEmpty()) {
+            sql.append("AND payment_status = ? ");
+            params.add(filter.getPaymentStatus());
+        }
+        
         if (filter.getFromDate() != null) {
             sql.append("AND created_at >= ? ");
             params.add(Timestamp.valueOf(filter.getFromDate() + " 00:00:00"));
@@ -364,6 +242,110 @@ public class OrderDAO {
         return 0;
     }
     
+    /**
+     * Gets order statistics based on filter criteria.
+     *
+     * @param filter the search request with filter criteria
+     * @return Map containing order counts by status (pending, processing, shipped, delivered, cancelled)
+     * @throws Exception if database operation fails
+     */
+    public java.util.Map<String, Integer> getStats(OrderSearchRequest filter) throws Exception {
+        StringBuilder sql = new StringBuilder();
+        sql.append("SELECT ");
+        sql.append("SUM(CASE WHEN order_status = 'PENDING' THEN 1 ELSE 0 END) as pending_count, ");
+        sql.append("SUM(CASE WHEN order_status = 'PROCESSING' THEN 1 ELSE 0 END) as processing_count, ");
+        sql.append("SUM(CASE WHEN order_status = 'SHIPPED' THEN 1 ELSE 0 END) as shipped_count, ");
+        sql.append("SUM(CASE WHEN order_status = 'DELIVERED' THEN 1 ELSE 0 END) as delivered_count, ");
+        sql.append("SUM(CASE WHEN order_status = 'CANCELLED' THEN 1 ELSE 0 END) as cancelled_count ");
+        sql.append("FROM orders WHERE 1=1 ");
+        
+        List<Object> params = new ArrayList<>();
+        
+        if (filter.getKeyword() != null && !filter.getKeyword().isEmpty()) {
+            sql.append("AND (CAST(customer_id AS TEXT) LIKE ? OR LOWER(invoice_number) LIKE LOWER(?)) ");
+            String searchPattern = "%" + filter.getKeyword() + "%";
+            params.add(searchPattern);
+            params.add(searchPattern);
+        }
+        
+        if (filter.getCustomerId() != null && !filter.getCustomerId().isEmpty()) {
+            sql.append("AND customer_id = ? ");
+            params.add(filter.getCustomerId());
+        }
+        
+        if (filter.getStatus() != null && !filter.getStatus().isEmpty()) {
+            sql.append("AND order_status = ? ");
+            params.add(filter.getStatus());
+        }
+        
+        if (filter.getPaymentStatus() != null && !filter.getPaymentStatus().isEmpty()) {
+            sql.append("AND payment_status = ? ");
+            params.add(filter.getPaymentStatus());
+        }
+        
+        if (filter.getFromDate() != null) {
+            sql.append("AND created_at >= ? ");
+            params.add(Timestamp.valueOf(filter.getFromDate() + " 00:00:00"));
+        }
+        
+        if (filter.getToDate() != null) {
+            sql.append("AND created_at <= ? ");
+            params.add(Timestamp.valueOf(filter.getToDate() + " 23:59:59"));
+        }
+        
+        if (filter.getMinAmount() != null) {
+            sql.append("AND total_amount >= ? ");
+            params.add(BigDecimal.valueOf(filter.getMinAmount()));
+        }
+        
+        if (filter.getMaxAmount() != null) {
+            sql.append("AND total_amount <= ? ");
+            params.add(BigDecimal.valueOf(filter.getMaxAmount()));
+        }
+        
+        try (Connection conn = DBUtil.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql.toString())) {
+            for (int i = 0; i < params.size(); i++) {
+                ps.setObject(i + 1, params.get(i));
+            }
+            try (ResultSet rs = ps.executeQuery()) {
+                java.util.Map<String, Integer> stats = new java.util.HashMap<>();
+                if (rs.next()) {
+                    stats.put("pending", rs.getInt("pending_count"));
+                    stats.put("processing", rs.getInt("processing_count"));
+                    stats.put("shipped", rs.getInt("shipped_count"));
+                    stats.put("delivered", rs.getInt("delivered_count"));
+                    stats.put("cancelled", rs.getInt("cancelled_count"));
+                }
+                return stats;
+            }
+        }
+    }
+
+    /**
+     * Updates shipping address for an order.
+     *
+     * @param order the order with updated shipping details
+     * @throws Exception if database operation fails
+     */
+    public void updateShippingAddress(Order order) throws Exception {
+        String sql = "UPDATE orders SET shipping_name = ?, shipping_address_line = ?, shipping_city = ?, " +
+                    "shipping_state = ?, shipping_postal_code = ?, shipping_country = ?, updated_at = CURRENT_TIMESTAMP " +
+                    "WHERE order_id = ?";
+        
+        try (Connection conn = DBUtil.getConnection();
+            PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setString(1, order.getShippingName());
+            ps.setString(2, order.getShippingAddressLine());
+            ps.setString(3, order.getShippingCity());
+            ps.setString(4, order.getShippingState());
+            ps.setString(5, order.getShippingPostalCode());
+            ps.setString(6, order.getShippingCountry());
+            ps.setLong(7, order.getOrderId());
+            ps.executeUpdate();
+        }
+    }
+        
     /**
      * Updates order status and payment status.
      *
@@ -450,9 +432,11 @@ public class OrderDAO {
         switch (sortBy) {
             case "created_at":
             case "total_amount":
+            case "total":
             case "order_status":
+            case "payment_status":
             case "customer_id":
-                return sortBy;
+                return sortBy.equals("total") ? "total_amount" : sortBy;
             default:
                 return "created_at";
         }

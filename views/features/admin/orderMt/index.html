@@ -1,0 +1,430 @@
+<!DOCTYPE html>
+<!-- Order Management Page - Manage customer orders for administrators -->
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+    <meta name="description" content="JCart Order Management - Manage customer orders">
+    <meta name="keywords" content="order, management, orders, JCart">
+    <title>Order Management - JCart Admin</title>
+    <link rel="icon" type="image/svg+xml" href="/JCart/views/assets/favicon.svg">
+    <link rel="stylesheet" href="/JCart/views/shared/admin-sidebar/admin-sidebar.css">
+    <link rel="stylesheet" href="/JCart/views/shared/pagination/pagination.css">
+    <link rel="stylesheet" href="styles.css">
+    <script src="/JCart/views/utils/toast.js" defer></script>
+    <script src="/JCart/views/shared/admin-sidebar/admin-sidebar.js" defer></script>
+    <script src="/JCart/views/shared/pagination/pagination.js" defer></script>
+    <script src="script.js" defer></script>
+</head>
+<body>
+    <!-- Sidebar placeholder -->
+    <div id="sidebarContainer"></div>
+
+    <!-- Main Content -->
+    <main class="main-content">
+        <!-- Top Header -->
+        <header class="top-header">
+            <button class="menu-toggle" id="menuToggle">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+            </button>
+            <div class="header-title">
+                <h1>Order Management</h1>
+                <p class="breadcrumb">Manage and track customer orders</p>
+            </div>
+            <div class="header-actions">
+                <div class="admin-profile">
+                    <div class="profile-avatar">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                    </div>
+                    <span id="profileName">Admin</span>
+                </div>
+            </div>
+        </header>
+
+        <!-- Page Content -->
+        <div class="page-content">
+            <!-- Stats Cards -->
+            <section class="stats-row">
+                <div class="stat-card">
+                    <div class="stat-icon total">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+                    </div>
+                    <div class="stat-info">
+                        <span class="stat-value" id="totalOrders">--</span>
+                        <span class="stat-label">Total Orders</span>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon pending">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                    </div>
+                    <div class="stat-info">
+                        <span class="stat-value" id="pendingOrders">--</span>
+                        <span class="stat-label">Pending</span>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon processing">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
+                    </div>
+                    <div class="stat-info">
+                        <span class="stat-value" id="processingOrders">--</span>
+                        <span class="stat-label">Processing</span>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon shipped">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
+                    </div>
+                    <div class="stat-info">
+                        <span class="stat-value" id="shippedOrders">--</span>
+                        <span class="stat-label">Shipped</span>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon delivered">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+                    </div>
+                    <div class="stat-info">
+                        <span class="stat-value" id="deliveredOrders">--</span>
+                        <span class="stat-label">Delivered</span>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Order List -->
+            <section class="list-section">
+                <div class="list-header">
+                    <h3>All Orders</h3>
+                    <div class="list-controls">
+                        <div class="search-box">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                            <input type="text" id="searchInput" placeholder="Search by invoice, customer...">
+                        </div>
+                        <button class="btn-toggle-filters" id="toggleFiltersBtn" title="Toggle advanced filters">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
+                            <span>Filters</span>
+                            <span class="filter-count" id="filterCount"></span>
+                        </button>
+                        <button class="btn-apply-filters" id="applyFiltersBtn" title="Apply filters">
+                            <span>Apply</span>
+                        </button>
+                        <button class="btn-clear-filters" id="clearFiltersBtn" title="Clear all filters">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                            <span>Clear</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Advanced Filters Panel -->
+                <div class="filters-panel" id="filtersPanel">
+                    <div class="filters-grid">
+                        <div class="filter-item">
+                            <label for="statusFilter">Order Status</label>
+                            <select id="statusFilter" class="filter-select">
+                                <option value="">All Status</option>
+                                <option value="PENDING">Pending</option>
+                                <option value="PROCESSING">Processing</option>
+                                <option value="SHIPPED">Shipped</option>
+                                <option value="DELIVERED">Delivered</option>
+                                <option value="CANCELLED">Cancelled</option>
+                            </select>
+                        </div>
+                        <div class="filter-item">
+                            <label for="paymentStatusFilter">Payment Status</label>
+                            <select id="paymentStatusFilter" class="filter-select">
+                                <option value="">All Payment Status</option>
+                                <option value="PENDING">Pending</option>
+                                <option value="PAID">Paid</option>
+                                <option value="FAILED">Failed</option>
+                                <option value="REFUNDED">Refunded</option>
+                            </select>
+                        </div>
+                        <div class="filter-item">
+                            <label for="fromDate">From Date</label>
+                            <input type="date" id="fromDate" class="filter-input">
+                        </div>
+                        <div class="filter-item">
+                            <label for="toDate">To Date</label>
+                            <input type="date" id="toDate" class="filter-input">
+                        </div>
+                        <div class="filter-item">
+                            <label for="minAmount">Min Amount</label>
+                            <input type="number" id="minAmount" class="filter-input" placeholder="0.00" min="0" step="0.01">
+                        </div>
+                        <div class="filter-item">
+                            <label for="maxAmount">Max Amount</label>
+                            <input type="number" id="maxAmount" class="filter-input" placeholder="999.99" min="0" step="0.01">
+                        </div>
+                        <div class="filter-item">
+                            <label for="sortBy">Sort By</label>
+                            <select id="sortBy" class="filter-select">
+                                <option value="created_at">Order Date</option>
+                                <option value="total_amount">Total Amount</option>
+                                <option value="order_status">Order Status</option>
+                                <option value="invoice_number">Invoice Number</option>
+                            </select>
+                        </div>
+                        <div class="filter-item">
+                            <label for="sortDir">Sort Order</label>
+                            <select id="sortDir" class="filter-select">
+                                <option value="DESC">Descending</option>
+                                <option value="ASC">Ascending</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Loading State -->
+                <div id="loadingState" class="state-message">
+                    <div class="loading-spinner"></div>
+                    <p>Loading orders...</p>
+                </div>
+
+                <!-- Error State -->
+                <div id="errorState" class="state-message error-state hidden">
+                    <div class="error-icon">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <circle cx="12" cy="12" r="10"/>
+                            <line x1="15" y1="9" x2="9" y2="15"/>
+                            <line x1="9" y1="9" x2="15" y2="15"/>
+                        </svg>
+                    </div>
+                    <h3>Unable to Load Orders</h3>
+                    <p id="errorMessage">Something went wrong. Please try again.</p>
+                    <button type="button" class="btn btn-primary" id="retryBtn">Try Again</button>
+                </div>
+
+                <!-- Empty State -->
+                <div id="emptyState" class="state-message empty-state hidden">
+                    <div class="empty-icon">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                            <polyline points="14 2 14 8 20 8"/>
+                        </svg>
+                    </div>
+                    <h3>No Orders Found</h3>
+                    <p id="emptyMessage">No orders in the system yet. Waiting for customer orders.</p>
+                </div>
+
+                <div class="table-container hidden" id="ordersContent">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Order</th>
+                                <th>Customer</th>
+                                <th>Date</th>
+                                <th>Total</th>
+                                <th>Payment</th>
+                                <th>Status</th>
+                                <th class="actions-header">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="orderTableBody">
+                            <tr class="loading-row">
+                                <td colspan="7">
+                                    <div class="loading-spinner"></div>
+                                    <span>Loading orders...</span>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                
+                <!-- Pagination Placeholder -->
+                <div id="paginationPlaceholder"></div>
+            </section>
+        </div>
+    </main>
+
+    <!-- View Order Details Modal -->
+    <div class="modal-overlay" id="viewModal">
+        <div class="modal modal-view modal-lg">
+            <div class="modal-header">
+                <h3>Order Details</h3>
+                <button class="modal-close" id="viewModalClose">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                </button>
+            </div>
+            <div class="modal-body view-body">
+                <!-- Order Header -->
+                <div class="view-section">
+                    <div class="order-header">
+                        <div class="order-header-info">
+                            <div class="invoice-badge">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+                            </div>
+                            <div>
+                                <h2 id="viewInvoiceNumber">--</h2>
+                                <span class="order-date" id="viewOrderDate">--</span>
+                            </div>
+                        </div>
+                        <div class="order-status-badges">
+                            <span class="status-badge" id="viewOrderStatus">--</span>
+                            <span class="payment-badge" id="viewPaymentStatus">--</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Customer & Shipping Info -->
+                <div class="view-section">
+                    <div class="info-columns">
+                        <div class="info-column">
+                            <h4 class="section-title">Customer Information</h4>
+                            <div class="customer-info">
+                                <div class="customer-avatar" id="viewCustomerAvatar">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                                </div>
+                                <div class="customer-details">
+                                    <span class="customer-name" id="viewCustomerName">--</span>
+                                    <span class="customer-email" id="viewCustomerEmail">--</span>
+                                    <span class="customer-id" id="viewCustomerId">--</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="info-column">
+                            <h4 class="section-title">Shipping Address</h4>
+                            <div class="shipping-address" id="viewShippingAddress">
+                                <p>--</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Order Items -->
+                <div class="view-section">
+                    <h4 class="section-title">Order Items</h4>
+                    <div class="order-items-table">
+                        <table class="items-table">
+                            <thead>
+                                <tr>
+                                    <th>Product</th>
+                                    <th>Price</th>
+                                    <th>Qty</th>
+                                    <th>Total</th>
+                                </tr>
+                            </thead>
+                            <tbody id="viewOrderItems">
+                                <tr>
+                                    <td colspan="4">No items</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Order Summary -->
+                <div class="view-section">
+                    <h4 class="section-title">Order Summary</h4>
+                    <div class="order-summary">
+                        <div class="summary-row">
+                            <span>Subtotal</span>
+                            <span id="viewSubtotal">₹0.00</span>
+                        </div>
+                        <div class="summary-row">
+                            <span>Tax</span>
+                            <span id="viewTax">₹0.00</span>
+                        </div>
+                        <div class="summary-row">
+                            <span>Shipping</span>
+                            <span id="viewShipping">₹0.00</span>
+                        </div>
+                        <div class="summary-row discount" id="discountRow" style="display: none;">
+                            <span>Discount</span>
+                            <span id="viewDiscount">-₹0.00</span>
+                        </div>
+                        <div class="summary-row total">
+                            <span>Total</span>
+                            <span id="viewTotal">₹0.00</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Transaction Information -->
+                <div class="view-section">
+                    <h4 class="section-title">Transaction Information</h4>
+                    <div class="transactions-list" id="viewTransactions">
+                        <p class="no-transactions">No transactions found</p>
+                    </div>
+                </div>
+
+                <!-- Timestamps -->
+                <div class="view-section">
+                    <h4 class="section-title">Timestamps</h4>
+                    <div class="info-grid">
+                        <div class="info-item">
+                            <span class="info-label">Created At</span>
+                            <span class="info-value" id="viewCreatedAt">--</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">Last Updated</span>
+                            <span class="info-value" id="viewUpdatedAt">--</span>
+                        </div>
+                        <div class="info-item" id="paymentDeadlineItem" style="display: none;">
+                            <span class="info-label">Payment Deadline</span>
+                            <span class="info-value" id="viewPaymentDeadline">--</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn-cancel" id="viewCloseBtn">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Update Status Modal -->
+    <div class="modal-overlay" id="statusModal">
+        <div class="modal modal-sm">
+            <div class="modal-header">
+                <h3>Update Order Status</h3>
+                <button class="modal-close" id="statusModalClose">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                </button>
+            </div>
+            <div class="modal-body">
+                <p>Update status for order <strong id="statusOrderInvoice"></strong></p>
+                <div class="form-group">
+                    <label for="newStatus">New Status</label>
+                    <select id="newStatus" class="form-select">
+                        <!-- Options populated dynamically based on current status -->
+                    </select>
+                </div>
+                <div class="current-status-info">
+                    <span class="info-label">Current Status:</span>
+                    <span class="status-badge" id="currentStatusBadge">--</span>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn-cancel" id="statusCancelBtn">Cancel</button>
+                <button type="button" class="btn-submit" id="statusConfirmBtn">Update Status</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        (function () {
+            'use strict';
+            if (localStorage.getItem('adminLoggedIn') !== 'true') {
+                window.location.replace('/JCart/views/features/auth/admin/login/');
+            }
+            
+            // Load sidebar
+            fetch('/JCart/views/shared/admin-sidebar/admin-sidebar.html')
+                .then(function (r) {
+                    if (!r.ok) throw new Error('Failed to load sidebar');
+                    return r.text();
+                })
+                .then(function (html) {
+                    document.getElementById('sidebarContainer').innerHTML = html;
+                    if (window.initializeAdminSidebar) {
+                        window.initializeAdminSidebar('orderMt');
+                    }
+                })
+                .catch(function (err) {
+                    console.error('Error loading sidebar:', err);
+                });
+        })();
+    </script>
+</body>
+</html>

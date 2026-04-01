@@ -1,7 +1,7 @@
 package controller;
 
 import config.AsyncExecutor;
-import dto.TransactionFilterRequest;
+import dto.TransactionSearchRequest;
 import jakarta.servlet.AsyncContext;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.annotation.WebServlet;
@@ -11,6 +11,9 @@ import model.Customer;
 import model.Transaction;
 import service.CustomerService;
 import service.TransactionService;
+import util.JsonUtil;
+
+import java.io.BufferedReader;
 import java.io.IOException;
 import java.util.Map;
 import java.util.concurrent.RejectedExecutionException;
@@ -45,9 +48,10 @@ public class TransactionController extends BaseController {
         String pathInfo = req.getPathInfo();
         
         if (pathInfo == null || pathInfo.equals("/")) {
-            handleGetTransactions(req, resp);
+            sendError(resp, "Use POST /customer/transactions/search for transaction search", HttpServletResponse.SC_METHOD_NOT_ALLOWED);
         } else if (pathInfo.matches("/\\d+")) {
             Long transactionId = Long.parseLong(pathInfo.substring(1));
+            
             handleGetTransaction(req, resp, transactionId);
         } else {
             sendError(resp, "Endpoint not found", HttpServletResponse.SC_NOT_FOUND);
@@ -55,7 +59,8 @@ public class TransactionController extends BaseController {
     }
 
     /**
-     * Handles POST requests - not allowed for customer transaction endpoints.
+     * Handles POST requests for customer transaction endpoints.
+     * Supports transaction search operations.
      *
      * @param req the HTTP request object
      * @param resp the HTTP response object
@@ -65,52 +70,22 @@ public class TransactionController extends BaseController {
     @Override
     protected void doPost(HttpServletRequest req, HttpServletResponse resp) 
             throws ServletException, IOException {
-        sendError(resp, "Method not allowed", HttpServletResponse.SC_METHOD_NOT_ALLOWED);
-    }
-    
-    /**
-     * Handles GET /customer/transactions/ - retrieves customer's transactions with filters.
-     *
-     * @param req the HTTP request object
-     * @param resp the HTTP response object
-     */
-    private void handleGetTransactions(HttpServletRequest req, HttpServletResponse resp) {
-        AsyncContext asyncContext = req.startAsync();
-        asyncContext.setTimeout(60000);
         
-        try {
-            AsyncExecutor.EXECUTOR.submit(() -> {
-                try {
-                    HttpServletResponse response = (HttpServletResponse) asyncContext.getResponse();
-                    HttpServletRequest request = (HttpServletRequest) asyncContext.getRequest();
-                    
-                    String sessionToken = getSessionTokenFromCookie(request);
-                    Customer customer = customerService.getCurrentCustomer(sessionToken);
-                    if (customer == null) {
-                        sendError(response, "Unauthorized", HttpServletResponse.SC_UNAUTHORIZED);
-                        return;
-                    }
-                    
-                    TransactionFilterRequest filter = parseTransactionFilterRequest(request);
-                    Map<String, Object> result = transactionService.getCustomerTransactions(customer.getCustomerId(), filter);
-                    
-                    sendSuccess(response, result);
-                    
-                } catch (Exception e) {
-                    try {
-                        sendError((HttpServletResponse) asyncContext.getResponse(), e.getMessage(), 
-                                 HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
-                    } catch (IOException ignored) {}
-                } finally {
-                    asyncContext.complete();
-                }
-            });
-        } catch (RejectedExecutionException ex) {
-            try {
-                sendError(resp, "Server overloaded", HttpServletResponse.SC_SERVICE_UNAVAILABLE);
-            } catch (IOException e) {
-                e.printStackTrace();
+        String pathInfo = req.getPathInfo();
+        
+        StringBuilder sb = new StringBuilder();
+        try (BufferedReader reader = req.getReader()) {
+            String line;
+            while ((line = reader.readLine()) != null) {
+                sb.append(line);
             }
+        }
+        String jsonBody = sb.toString();
+        
+        if ("/search".equals(pathInfo)) {
+            handleSearch(req, resp, jsonBody);
+        } else {
+            sendError(resp, "Endpoint not found", HttpServletResponse.SC_NOT_FOUND);
         }
     }
     
@@ -138,7 +113,7 @@ public class TransactionController extends BaseController {
                         return;
                     }
                     
-                    Transaction transaction = transactionService.getCustomerTransaction(transactionId, customer.getCustomerId());
+                    Transaction transaction = transactionService.getTransaction(transactionId, customer.getCustomerId());
                     
                     sendSuccess(response, transaction);
                     
@@ -159,36 +134,93 @@ public class TransactionController extends BaseController {
             }
         }
     }
-    
+        
     /**
-     * Parses request parameters into TransactionFilterRequest object.
+     * Handles GET /customer/transactions/ - retrieves customer's transactions with filters.
      *
      * @param req the HTTP request object
-     * @return populated TransactionFilterRequest
+     * @param resp the HTTP response object
      */
-    private TransactionFilterRequest parseTransactionFilterRequest(HttpServletRequest req) {
-        TransactionFilterRequest filter = new TransactionFilterRequest();
-        filter.setType(req.getParameter("type"));
-        filter.setStatus(req.getParameter("status"));
-        filter.setFromDate(req.getParameter("fromDate"));
-        filter.setToDate(req.getParameter("toDate"));
-        filter.setSortBy(req.getParameter("sortBy"));
-        filter.setSortDir(req.getParameter("sortDir"));
+    /**
+     * Handles POST /customer/transactions/search - searches transactions with filters.
+     *
+     * @param req the HTTP request object
+     * @param resp the HTTP response object
+     * @param jsonBody the request body as JSON string
+     */
+    private void handleSearch(HttpServletRequest req, HttpServletResponse resp, String jsonBody) {
+        AsyncContext asyncContext = req.startAsync();
+        asyncContext.setTimeout(60000);
         
-        String page = req.getParameter("page");
+        try {
+            AsyncExecutor.EXECUTOR.submit(() -> {
+                try {
+                    HttpServletResponse response = (HttpServletResponse) asyncContext.getResponse();
+                    HttpServletRequest request = (HttpServletRequest) asyncContext.getRequest();
+                    
+                    String sessionToken = getSessionTokenFromCookie(request);
+                    Customer customer = customerService.getCurrentCustomer(sessionToken);
+                    if (customer == null) {
+                        sendError(response, "Unauthorized", HttpServletResponse.SC_UNAUTHORIZED);
+                        return;
+                    }
+                    
+                    TransactionSearchRequest searchReq = parseSearchRequest(jsonBody);
+                    searchReq.setCustomerId(customer.getCustomerId());
+
+                    Map<String, Object> result = transactionService.searchTransactions(searchReq, false);
+                    
+                    sendSuccess(response, result);
+                    
+                } catch (Exception e) {
+                    try {
+                        sendError((HttpServletResponse) asyncContext.getResponse(), e.getMessage(), 
+                                 HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+                    } catch (IOException ignored) {}
+                } finally {
+                    asyncContext.complete();
+                }
+            });
+        } catch (RejectedExecutionException ex) {
+            try {
+                sendError(resp, "Server overloaded", HttpServletResponse.SC_SERVICE_UNAVAILABLE);
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
+    }
+
+    /**
+     * Parses JSON body into TransactionSearchRequest object.
+     *
+     * @param json the JSON string
+     * @return populated TransactionSearchRequest
+     */
+    private TransactionSearchRequest parseSearchRequest(String json) {
+        TransactionSearchRequest searchReq = new TransactionSearchRequest();
+        searchReq.setKeyword(JsonUtil.getString(json, "keyword"));
+        searchReq.setType(JsonUtil.getString(json, "type"));
+        searchReq.setStatus(JsonUtil.getString(json, "status"));
+        searchReq.setPaymentMethod(JsonUtil.getString(json, "paymentMethod"));
+        searchReq.setFromDate(JsonUtil.getString(json, "fromDate"));
+        searchReq.setToDate(JsonUtil.getString(json, "toDate"));
+        searchReq.setSortBy(JsonUtil.getString(json, "sortBy"));
+        searchReq.setSortDir(JsonUtil.getString(json, "sortDir"));
+        
+        String page = JsonUtil.getString(json, "page");
         if (page != null) {
             try {
-                filter.setPage(Integer.parseInt(page));
+                searchReq.setPage(Integer.parseInt(page));
             } catch (NumberFormatException ignored) {}
         }
         
-        String size = req.getParameter("size");
+        String size = JsonUtil.getString(json, "size");
         if (size != null) {
             try {
-                filter.setSize(Integer.parseInt(size));
+                searchReq.setSize(Integer.parseInt(size));
             } catch (NumberFormatException ignored) {}
         }
         
-        return filter;
+        return searchReq;
     }
 }

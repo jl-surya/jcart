@@ -2,7 +2,7 @@ package service;
 
 import dao.CartDAO;
 import dao.ProductDAO;
-import dto.CartItemRequest;
+import dto.CartItemCreateRequest;
 import java.util.List;
 import model.CartItem;
 import model.Product;
@@ -33,7 +33,7 @@ public class CartService {
      * @return the CartItem object (existing or newly created)
      * @throws Exception if quantity invalid, product not found, or product inactive
      */
-    public CartItem addToCart(String customerId, CartItemRequest request) throws Exception {
+    public CartItem addToCart(String customerId, CartItemCreateRequest request) throws Exception {
         String productId = request.getProductId();
         int quantity = request.getQuantity();
         

@@ -2,7 +2,7 @@ package service;
 
 import dao.OrderDAO;
 import dao.TransactionDAO;
-import dto.TransactionFilterRequest;
+import dto.TransactionSearchRequest;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -23,33 +23,7 @@ public class TransactionService {
     private final TransactionDAO transactionDAO = new TransactionDAO();
     private final OrderDAO orderDAO = new OrderDAO();
     private final PaymentGateway paymentGateway = new PaymentGateway();
-    
-    /**
-     * Retrieves paginated transactions for a customer with filters.
-     *
-     * @param customerId the customer ID
-     * @param filter the filter criteria
-     * @return map containing transactions, page, size, total, totalPages
-     * @throws Exception if database operation fails
-     */
-    public Map<String, Object> getCustomerTransactions(String customerId, TransactionFilterRequest filter) throws Exception {
-        int page = filter.getPageOrDefault();
-        int size = filter.getSizeOrDefault();
-        int offset = (page - 1) * size;
-        
-        List<Transaction> transactions = transactionDAO.getByCustomerId(customerId, filter, offset, size);
-        int total = transactionDAO.countByCustomerId(customerId, filter);
-        
-        Map<String, Object> result = new HashMap<>();
-        result.put("transactions", transactions);
-        result.put("page", page);
-        result.put("size", size);
-        result.put("total", total);
-        result.put("totalPages", (int) Math.ceil((double) total / size));
-        
-        return result;
-    }
-    
+ 
     /**
      * Retrieves a specific transaction for a customer with ownership verification.
      *
@@ -58,34 +32,34 @@ public class TransactionService {
      * @return Transaction object
      * @throws Exception if transaction not found or not owned by customer
      */
-    public Transaction getCustomerTransaction(Long transactionId, String customerId) throws Exception {
+    public Transaction getTransaction(Long transactionId, String customerId) throws Exception {
         Transaction transaction = transactionDAO.getById(transactionId);
         if (transaction == null) {
             throw new IllegalArgumentException("Transaction not found");
         }
         
-        Order order = orderDAO.getById(transaction.getOrderId());
-        if (order == null || !order.getCustomerId().equals(customerId)) {
-            throw new IllegalArgumentException("Transaction not found");
+        if(customerId != null && !transaction.getProcessedBy().equals(customerId)) {
+            throw new IllegalArgumentException("Transaction not found for this customer");
         }
         
         return transaction;
     }
-    
+       
     /**
-     * Retrieves all transactions with filters (admin view).
+     * Searches transactions with filters and pagination.
      *
-     * @param filter the filter criteria
-     * @return map containing transactions, page, size, total, totalPages
+     * @param searchReq the search request with filters and pagination
+     * @param isAdmin if true, includes individual stat fields (total, payments, refunds, pendingRefunds) in response
+     * @return map containing transactions, page, size, total, totalPages, and optionally individual stat fields
      * @throws Exception if database operation fails
      */
-    public Map<String, Object> getAllTransactions(TransactionFilterRequest filter) throws Exception {
-        int page = filter.getPageOrDefault();
-        int size = filter.getSizeOrDefault();
+    public Map<String, Object> searchTransactions(TransactionSearchRequest searchReq, boolean isAdmin) throws Exception {
+        int page = searchReq.getPageOrDefault();
+        int size = searchReq.getSizeOrDefault();
         int offset = (page - 1) * size;
         
-        List<Transaction> transactions = transactionDAO.getAll(filter, offset, size);
-        int total = transactionDAO.countAll(filter);
+        List<Transaction> transactions = transactionDAO.getAll(searchReq, offset, size);
+        int total = transactionDAO.getAllCount(searchReq);
         
         Map<String, Object> result = new HashMap<>();
         result.put("transactions", transactions);
@@ -93,21 +67,18 @@ public class TransactionService {
         result.put("size", size);
         result.put("total", total);
         result.put("totalPages", (int) Math.ceil((double) total / size));
+
+        if(isAdmin) {
+            Map<String, Integer> stats = transactionDAO.getStats(searchReq);
+            result.put("total", stats.getOrDefault("total", 0));
+            result.put("payments", stats.getOrDefault("payments", 0));
+            result.put("refunds", stats.getOrDefault("refunds", 0));
+            result.put("pendingRefunds", stats.getOrDefault("pendingRefunds", 0));
+        }
         
         return result;
     }
-    
-    /**
-     * Retrieves a single transaction by ID (admin view).
-     *
-     * @param transactionId the transaction ID
-     * @return Transaction object
-     * @throws Exception if transaction not found
-     */
-    public Transaction getTransaction(Long transactionId) throws Exception {
-        return transactionDAO.getById(transactionId);
-    }
-    
+        
     /**
      * Processes refund approval or rejection action.
      *

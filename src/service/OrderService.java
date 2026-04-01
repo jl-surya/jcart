@@ -58,6 +58,319 @@ public class OrderService {
         ALLOWED_PAYMENT_STATUS_TRANSITIONS.put("FAILED", new ArrayList<>());
         ALLOWED_PAYMENT_STATUS_TRANSITIONS.put("REFUNDED", new ArrayList<>());
     }
+
+    /**
+     * Core order creation logic with transaction management.
+     * Deducts stock, creates order, processes payment, and clears cart on success.
+     *
+     * @param customerId the customer ID
+     * @param cartItems list of cart items
+     * @param address shipping address
+     * @param paymentMethod payment method
+     * @param clearCart whether to clear cart after successful payment
+     * @return OrderResponse with order details
+     * @throws Exception if order creation fails
+     */
+    private OrderResponse createOrder(String customerId, List<CartItem> cartItems, Address address, String paymentMethod, boolean clearCart) throws Exception {
+        try (Connection conn = DBUtil.getConnection()) {
+            conn.setAutoCommit(false);
+            
+            try {
+                Order order = new Order();
+                order.setCustomerId(customerId);
+                order.setOrderStatus("PENDING");
+                order.setPaymentStatus("PENDING");
+                order.setShippingName(address.getRecipientName());
+                order.setShippingAddressLine(address.getAddressLine());
+                order.setShippingCity(address.getCity());
+                order.setShippingState(address.getState());
+                order.setShippingPostalCode(address.getPostalCode());
+                order.setShippingCountry(address.getCountry());
+                order.setInvoiceNumber(generateInvoiceNumber());
+                order.setPaymentDeadline(new Timestamp(System.currentTimeMillis() + (5 * 60 * 1000)));
+                
+                BigDecimal totalAmount = BigDecimal.ZERO;
+                List<OrderItem> orderItems = new ArrayList<>();
+                
+                for (CartItem cartItem : cartItems) {
+                    Product product = productDAO.getById(cartItem.getProductId());
+                    if (product == null) {
+                        throw new IllegalArgumentException("Product not found: " + cartItem.getProductId());
+                    }
+                    if (!product.isActive()) {
+                        throw new IllegalArgumentException("Product not available: " + product.getProductName());
+                    }
+                    
+                    productDAO.deductStock(product.getProductId(), cartItem.getQuantity());
+                    
+                    OrderItem orderItem = new OrderItem();
+                    orderItem.setProductId(product.getProductId());
+                    orderItem.setProductName(product.getProductName());
+                    orderItem.setUnitPrice(product.getPrice());
+                    orderItem.setQuantity(cartItem.getQuantity());
+                    orderItem.setDiscount(product.getDiscount());
+                    orderItem.setTaxRate(product.getTaxRate());
+                    
+                    BigDecimal finalPrice = product.getFinalPrice();
+                    BigDecimal subtotal = finalPrice.multiply(BigDecimal.valueOf(cartItem.getQuantity()));
+                    orderItem.setSubtotal(subtotal);
+                    
+                    totalAmount = totalAmount.add(subtotal);
+                    orderItems.add(orderItem);
+                }
+                
+                BigDecimal tax = totalAmount.multiply(new BigDecimal("0.08"));
+                BigDecimal shipping = totalAmount.compareTo(new BigDecimal("500")) > 0 
+                    ? BigDecimal.ZERO 
+                    : (totalAmount.compareTo(BigDecimal.ZERO) > 0 ? new BigDecimal("49") : BigDecimal.ZERO);
+                
+                BigDecimal finalTotal = totalAmount.add(tax).add(shipping);
+                order.setTotalAmount(finalTotal);
+                orderDAO.insert(order);
+                
+                for (OrderItem orderItem : orderItems) {
+                    orderItem.setOrderId(order.getOrderId());
+                }
+                orderItemDAO.insertBatch(orderItems);
+                
+                Transaction payment = paymentGateway.initiatePayment(order, paymentMethod, customerId);
+                payment.setOrderId(order.getOrderId());
+                transactionDAO.insert(payment);
+                       
+                boolean paymentSuccess = true;
+                payment = paymentGateway.processPayment(payment, paymentSuccess);
+                transactionDAO.updateStatus(payment.getTransactionId(), payment.getTransactionStatus(), null);
+                    
+                if ("PAID".equals(payment.getTransactionStatus())) {
+                    order.setOrderStatus("PROCESSING");
+                    order.setPaymentStatus("PAID");
+                    int updated = orderDAO.updateStatus(order.getOrderId(), "PROCESSING", "PAID");
+                    
+                    if (clearCart) {
+                        cartDAO.clear(customerId);
+                    }
+                } else {
+                    order.setOrderStatus("CANCELLED");
+                    order.setPaymentStatus("FAILED");
+                    orderDAO.updateStatus(order.getOrderId(), "CANCELLED", "FAILED");
+                    
+                    for (OrderItem orderItem : orderItems) {
+                        productDAO.restoreStock(orderItem.getProductId(), orderItem.getQuantity());
+                    }
+                    
+                    throw new IllegalArgumentException("Payment failed");
+                }
+                
+                conn.commit();
+                
+                List<Transaction> payments = transactionDAO.getAllByOrderId(order.getOrderId());
+                return buildOrderResponse(order, orderItems, payments);
+                
+            } catch (Exception e) {
+                e.printStackTrace();
+                conn.rollback();
+                throw e;
+            }
+        }
+    }
+    
+    /**
+     * Retrieves order by ID with optional customer ownership check.
+     *
+     * @param orderId the order ID
+     * @param customerId the customer ID (null for admin view)
+     * @return OrderResponse with order details
+     * @throws Exception if order not found
+     */
+    public OrderResponse getOrder(Long orderId, String customerId) throws Exception {
+        Order order = orderDAO.getById(orderId);
+        if (order == null) {
+            throw new IllegalArgumentException("Order not found");
+        }
+        
+        if (customerId != null && !order.getCustomerId().equals(customerId)) {
+            throw new IllegalArgumentException("Order not found");
+        }
+        
+        List<OrderItem> items = orderItemDAO.getByOrderId(orderId);
+        List<Transaction> payments = transactionDAO.getAllByOrderId(orderId);
+        
+        return buildOrderResponse(order, items, payments);
+    }
+
+    /**
+     * Searches orders with filters and pagination.
+     *
+     * @param searchReq the search request with filters and pagination
+     * @param isAdmin if true, includes individual stat fields (pending, processing, shipped, delivered, cancelled) in response
+     * @return map containing orders, page, size, total, totalPages, and optionally individual stat fields
+     * @throws Exception if database operation fails
+     */
+    public Map<String, Object> searchOrders(OrderSearchRequest searchReq, boolean isAdmin) throws Exception {
+        int page = searchReq.getPageOrDefault();
+        int size = searchReq.getSizeOrDefault();
+        int offset = (page - 1) * size;
+        
+        List<Order> orders = orderDAO.getAll(searchReq, offset, size);
+        int total = orderDAO.getAllCount(searchReq);
+        
+        List<OrderResponse> orderResponses = new ArrayList<>();
+        for (Order order : orders) {
+            List<OrderItem> items = orderItemDAO.getByOrderId(order.getOrderId());
+            List<Transaction> payments = transactionDAO.getAllByOrderId(order.getOrderId());
+            orderResponses.add(buildOrderResponse(order, items, payments));
+        }
+        
+        Map<String, Object> result = new HashMap<>();
+        result.put("orders", orderResponses);
+        result.put("page", page);
+        result.put("size", size);
+        result.put("total", total);
+        result.put("totalPages", (int) Math.ceil((double) total / size));
+
+        if(isAdmin) {
+            Map<String, Integer> stats = orderDAO.getStats(searchReq);
+            result.put("pending", stats.getOrDefault("pending", 0));
+            result.put("processing", stats.getOrDefault("processing", 0));
+            result.put("shipped", stats.getOrDefault("shipped", 0));
+            result.put("delivered", stats.getOrDefault("delivered", 0));
+            result.put("cancelled", stats.getOrDefault("cancelled", 0));
+        }
+        
+        return result;
+    }
+    
+    /**
+     * Updates shipping address for an order (only allowed for pending orders).
+     *
+     * @param orderId the order ID
+     * @param customerId the customer ID for ownership verification
+     * @param request the address update request
+     * @throws Exception if order not found or status doesn't allow update
+     */
+    public void updateOrderAddress(Long orderId, String customerId, OrderAddressUpdateRequest request) throws Exception {
+        Order order = orderDAO.getById(orderId);
+        if (order == null || !order.getCustomerId().equals(customerId)) {
+            throw new IllegalArgumentException("Order not found");
+        }
+        
+        if ("SHIPPED".equals(order.getOrderStatus()) || "DELIVERED".equals(order.getOrderStatus()) || "CANCELLED".equals(order.getOrderStatus())) {
+            throw new IllegalArgumentException("Address cannot be modified. Order status: " + order.getOrderStatus());
+        }
+        
+        Address address = resolveAddressForUpdate(customerId, request);
+        
+        order.setShippingName(address.getRecipientName());
+        order.setShippingAddressLine(address.getAddressLine());
+        order.setShippingCity(address.getCity());
+        order.setShippingState(address.getState());
+        order.setShippingPostalCode(address.getPostalCode());
+        order.setShippingCountry(address.getCountry());
+        
+        orderDAO.updateShippingAddress(order);
+    }
+
+    /**
+     * Updates order status with validation against allowed transitions.
+     *
+     * @param orderId the order ID
+     * @param newOrderStatus the new order status
+     * @throws Exception if transition is not allowed
+     */
+    public void updateOrderStatus(Long orderId, String newOrderStatus) throws Exception {
+        Order order = orderDAO.getById(orderId);
+        if (order == null) {
+            throw new IllegalArgumentException("Order not found");
+        }
+        
+        String currentOrderStatus = order.getOrderStatus();
+        String currentPaymentStatus = order.getPaymentStatus();
+        
+        List<String> allowedNextOrderStatuses = ALLOWED_ORDER_STATUS_TRANSITIONS.get(currentOrderStatus);
+        if (allowedNextOrderStatuses == null || !allowedNextOrderStatuses.contains(newOrderStatus)) {
+            throw new IllegalArgumentException(
+                String.format("Cannot change order status from '%s' to '%s'. Allowed transitions: %s",
+                    currentOrderStatus, newOrderStatus, allowedNextOrderStatuses != null ? allowedNextOrderStatuses : "none")
+            );
+        }
+        
+        String newPaymentStatus = determinePaymentStatus(currentOrderStatus, newOrderStatus, currentPaymentStatus);
+        
+        if (!currentPaymentStatus.equals(newPaymentStatus)) {
+            List<String> allowedNextPaymentStatuses = ALLOWED_PAYMENT_STATUS_TRANSITIONS.get(currentPaymentStatus);
+            if (allowedNextPaymentStatuses == null || !allowedNextPaymentStatuses.contains(newPaymentStatus)) {
+                throw new IllegalArgumentException(
+                    String.format("Invalid payment status transition from '%s' to '%s' for order status change '%s' -> '%s'",
+                        currentPaymentStatus, newPaymentStatus, currentOrderStatus, newOrderStatus)
+                );
+            }
+        }
+        
+        orderDAO.updateStatus(orderId, newOrderStatus, newPaymentStatus);
+    }
+        
+    /**
+     * Cancels an order by customer.
+     * Restores stock and initiates refund.
+     *
+     * @param orderId the order ID
+     * @param customerId the customer ID for ownership verification
+     * @throws Exception if order cannot be cancelled
+     */
+    public void cancelOrder(Long orderId, String customerId) throws Exception {
+        Order order = orderDAO.getById(orderId);
+        if (order == null || !order.getCustomerId().equals(customerId)) {
+            throw new IllegalArgumentException("Order not found");
+        }
+        
+        String currentOrderStatus = order.getOrderStatus();
+        String currentPaymentStatus = order.getPaymentStatus();
+        
+        if (!"PROCESSING".equals(currentOrderStatus)) {
+            throw new IllegalArgumentException(
+                String.format("Order cannot be cancelled. Current status: '%s'. Only PROCESSING orders can be cancelled", 
+                    currentOrderStatus)
+            );
+        }
+        
+        if (!"PAID".equals(currentPaymentStatus)) {
+            throw new IllegalArgumentException(
+                String.format("Order cannot be cancelled. Payment status: '%s'. Only PAID orders can be cancelled",
+                    currentPaymentStatus)
+            );
+        }
+        
+        try (Connection conn = DBUtil.getConnection()) {
+            conn.setAutoCommit(false);
+            
+            try {
+                orderDAO.updateStatus(orderId, "CANCELLED", "REFUNDING");
+            
+                productDAO.restoreStockForOrder(orderId);
+                
+                List<Transaction> payments = transactionDAO.getAllByOrderId(orderId);
+                
+                Transaction payment = null;
+                for (Transaction txn : payments) {
+                    if ("PAYMENT".equals(txn.getTransactionType())) {
+                        payment = txn;
+                        break;
+                    }
+                }
+                
+                if (payment != null) {
+                    Transaction refund = paymentGateway.initiateRefund(payment, "Cancelled by customer");
+                    transactionDAO.insert(refund);
+                }
+                
+                conn.commit();
+                
+            } catch (Exception e) {
+                conn.rollback();
+                throw e;
+            }
+        }
+    }
     
     /**
      * Resolves shipping address from order request (saved address or one-time address).
@@ -139,7 +452,7 @@ public class OrderService {
      * @return resolved Address object
      * @throws Exception if address resolution fails
      */
-    private Address resolveAddressForUpdate(String customerId, UpdateOrderAddressRequest request) throws Exception {
+    private Address resolveAddressForUpdate(String customerId, OrderAddressUpdateRequest request) throws Exception {
         String addressType = request.getAddressType();
         
         if (addressType == null || "SAVED".equalsIgnoreCase(addressType)) {
@@ -227,33 +540,7 @@ public class OrderService {
         
         return orderRequest;
     }
-    
-    /**
-     * Converts order item requests to CartItem list for processing.
-     *
-     * @param itemRequests list of order item requests
-     * @return list of CartItem objects
-     * @throws Exception if product not found
-     */
-    private List<CartItem> convertToCartItems(List<OrderItemRequest> itemRequests) throws Exception {
-        List<CartItem> cartItems = new ArrayList<>();
-        for (OrderItemRequest itemReq : itemRequests) {
-            Product product = productDAO.getById(itemReq.getProductId());
-            if (product == null) {
-                throw new IllegalArgumentException("Product not found: " + itemReq.getProductId());
-            }
-            CartItem cartItem = new CartItem();
-            cartItem.setProductId(itemReq.getProductId());
-            cartItem.setQuantity(itemReq.getQuantity());
-            cartItem.setProductName(product.getProductName());
-            cartItem.setPrice(product.getPrice());
-            cartItem.setDiscount(product.getDiscount());
-            cartItem.setStockLevel(product.getStockLevel());
-            cartItems.add(cartItem);
-        }
-        return cartItems;
-    }
-    
+
     /**
      * Creates an order from cart items.
      *
@@ -270,7 +557,7 @@ public class OrderService {
         
         Address address = resolveAddress(customerId, request);
         
-        return createOrder(customerId, cartItems, address, request.getPaymentMethod());
+        return createOrder(customerId, cartItems, address, request.getPaymentMethod(), true);
     }
     
     /**
@@ -305,340 +592,7 @@ public class OrderService {
         
         Address address = resolveAddress(customerId, convertToOrderRequest(request));
         
-        return createOrder(customerId, items, address, request.getPaymentMethod());
-    }
-
-    /**
-     * Core order creation logic with transaction management.
-     * Deducts stock, creates order, processes payment, and clears cart on success.
-     *
-     * @param customerId the customer ID
-     * @param cartItems list of cart items
-     * @param address shipping address
-     * @param paymentMethod payment method
-     * @return OrderResponse with order details
-     * @throws Exception if order creation fails
-     */
-    private OrderResponse createOrder(String customerId, List<CartItem> cartItems, Address address, String paymentMethod) throws Exception {
-        try (Connection conn = DBUtil.getConnection()) {
-            conn.setAutoCommit(false);
-            
-            try {
-                Order order = new Order();
-                order.setCustomerId(customerId);
-                order.setOrderStatus("PENDING");
-                order.setPaymentStatus("PENDING");
-                order.setShippingName(address.getRecipientName());
-                order.setShippingAddressLine(address.getAddressLine());
-                order.setShippingCity(address.getCity());
-                order.setShippingState(address.getState());
-                order.setShippingPostalCode(address.getPostalCode());
-                order.setShippingCountry(address.getCountry());
-                order.setInvoiceNumber(generateInvoiceNumber());
-                order.setPaymentDeadline(new Timestamp(System.currentTimeMillis() + (5 * 60 * 1000)));
-                
-                BigDecimal totalAmount = BigDecimal.ZERO;
-                List<OrderItem> orderItems = new ArrayList<>();
-                
-                for (CartItem cartItem : cartItems) {
-                    Product product = productDAO.getById(cartItem.getProductId());
-                    if (product == null) {
-                        throw new IllegalArgumentException("Product not found: " + cartItem.getProductId());
-                    }
-                    if (!product.isActive()) {
-                        throw new IllegalArgumentException("Product not available: " + product.getProductName());
-                    }
-                    
-                    productDAO.deductStock(product.getProductId(), cartItem.getQuantity());
-                    
-                    OrderItem orderItem = new OrderItem();
-                    orderItem.setProductId(product.getProductId());
-                    orderItem.setProductName(product.getProductName());
-                    orderItem.setUnitPrice(product.getPrice());
-                    orderItem.setQuantity(cartItem.getQuantity());
-                    orderItem.setDiscount(product.getDiscount());
-                    orderItem.setTaxRate(product.getTaxRate());
-                    
-                    BigDecimal finalPrice = product.getFinalPrice();
-                    BigDecimal subtotal = finalPrice.multiply(BigDecimal.valueOf(cartItem.getQuantity()));
-                    orderItem.setSubtotal(subtotal);
-                    
-                    totalAmount = totalAmount.add(subtotal);
-                    orderItems.add(orderItem);
-                }
-                
-                BigDecimal tax = totalAmount.multiply(new BigDecimal("0.08"));
-                BigDecimal shipping = totalAmount.compareTo(new BigDecimal("500")) > 0 
-                    ? BigDecimal.ZERO 
-                    : (totalAmount.compareTo(BigDecimal.ZERO) > 0 ? new BigDecimal("49") : BigDecimal.ZERO);
-                
-                BigDecimal finalTotal = totalAmount.add(tax).add(shipping);
-                order.setTotalAmount(finalTotal);
-                orderDAO.insert(order);
-                
-                for (OrderItem orderItem : orderItems) {
-                    orderItem.setOrderId(order.getOrderId());
-                }
-                orderItemDAO.insertBatch(orderItems);
-                
-                Transaction payment = paymentGateway.initiatePayment(order, paymentMethod, customerId);
-                payment.setOrderId(order.getOrderId());
-                transactionDAO.insert(payment);
-                       
-                boolean paymentSuccess = true;
-                payment = paymentGateway.processPayment(payment, paymentSuccess);
-                transactionDAO.updateStatus(payment.getTransactionId(), payment.getTransactionStatus(), null);
-                    
-                if ("PAID".equals(payment.getTransactionStatus())) {
-                    order.setOrderStatus("PROCESSING");
-                    order.setPaymentStatus("PAID");
-                    int updated = orderDAO.updateStatus(order.getOrderId(), "PROCESSING", "PAID");
-                    
-                    cartDAO.clear(customerId);
-                } else {
-                    order.setOrderStatus("CANCELLED");
-                    order.setPaymentStatus("FAILED");
-                    orderDAO.updateStatus(order.getOrderId(), "CANCELLED", "FAILED");
-                    
-                    for (OrderItem orderItem : orderItems) {
-                        productDAO.restoreStock(orderItem.getProductId(), orderItem.getQuantity());
-                    }
-                    
-                    throw new IllegalArgumentException("Payment failed");
-                }
-                
-                conn.commit();
-                
-                List<Transaction> payments = transactionDAO.getAllByOrderId(order.getOrderId());
-                return buildOrderResponse(order, orderItems, payments);
-                
-            } catch (Exception e) {
-                e.printStackTrace();
-                conn.rollback();
-                throw e;
-            }
-        }
-    }
-    
-    /**
-     * Updates shipping address for an order (only allowed for pending orders).
-     *
-     * @param orderId the order ID
-     * @param customerId the customer ID for ownership verification
-     * @param request the address update request
-     * @throws Exception if order not found or status doesn't allow update
-     */
-    public void updateOrderAddress(Long orderId, String customerId, UpdateOrderAddressRequest request) throws Exception {
-        Order order = orderDAO.getById(orderId);
-        if (order == null || !order.getCustomerId().equals(customerId)) {
-            throw new IllegalArgumentException("Order not found");
-        }
-        
-        if ("SHIPPED".equals(order.getOrderStatus()) || "DELIVERED".equals(order.getOrderStatus()) || "CANCELLED".equals(order.getOrderStatus())) {
-            throw new IllegalArgumentException("Address cannot be modified. Order status: " + order.getOrderStatus());
-        }
-        
-        Address address = resolveAddressForUpdate(customerId, request);
-        
-        order.setShippingName(address.getRecipientName());
-        order.setShippingAddressLine(address.getAddressLine());
-        order.setShippingCity(address.getCity());
-        order.setShippingState(address.getState());
-        order.setShippingPostalCode(address.getPostalCode());
-        order.setShippingCountry(address.getCountry());
-        
-        orderDAO.updateShippingAddress(order);
-    }
-    
-    /**
-     * Retrieves order by ID with optional customer ownership check.
-     *
-     * @param orderId the order ID
-     * @param customerId the customer ID (null for admin view)
-     * @return OrderResponse with order details
-     * @throws Exception if order not found
-     */
-    public OrderResponse getOrder(Long orderId, String customerId) throws Exception {
-        Order order = orderDAO.getById(orderId);
-        if (order == null) {
-            throw new IllegalArgumentException("Order not found");
-        }
-        
-        if (customerId != null && !order.getCustomerId().equals(customerId)) {
-            throw new IllegalArgumentException("Order not found");
-        }
-        
-        List<OrderItem> items = orderItemDAO.getByOrderId(orderId);
-        List<Transaction> payments = transactionDAO.getAllByOrderId(orderId);
-        
-        return buildOrderResponse(order, items, payments);
-    }
-    
-    /**
-     * Retrieves paginated orders for a customer with filters.
-     *
-     * @param customerId the customer ID
-     * @param filter the filter criteria
-     * @return map containing orders, page, size, total, totalPages
-     * @throws Exception if database operation fails
-     */
-    public Map<String, Object> getCustomerOrders(String customerId, OrderFilterRequest filter) throws Exception {
-        int page = filter.getPageOrDefault();
-        int size = filter.getSizeOrDefault();
-        int offset = (page - 1) * size;
-        
-        List<Order> orders = orderDAO.getByCustomerId(customerId, filter, offset, size);
-        int total = orderDAO.countByCustomerId(customerId, filter);
-        
-        List<OrderResponse> orderResponses = new ArrayList<>();
-        for (Order order : orders) {
-            List<OrderItem> items = orderItemDAO.getByOrderId(order.getOrderId());
-            List<Transaction> payments = transactionDAO.getAllByOrderId(order.getOrderId());
-            orderResponses.add(buildOrderResponse(order, items, payments));
-        }
-        
-        Map<String, Object> result = new HashMap<>();
-        result.put("orders", orderResponses);
-        result.put("page", page);
-        result.put("size", size);
-        result.put("total", total);
-        result.put("totalPages", (int) Math.ceil((double) total / size));
-        
-        return result;
-    }
-    
-    /**
-     * Cancels an order by customer.
-     * Restores stock and initiates refund.
-     *
-     * @param orderId the order ID
-     * @param customerId the customer ID for ownership verification
-     * @throws Exception if order cannot be cancelled
-     */
-    public void cancelOrder(Long orderId, String customerId) throws Exception {
-        Order order = orderDAO.getById(orderId);
-        if (order == null || !order.getCustomerId().equals(customerId)) {
-            throw new IllegalArgumentException("Order not found");
-        }
-        
-        String currentOrderStatus = order.getOrderStatus();
-        String currentPaymentStatus = order.getPaymentStatus();
-        
-        if (!"PROCESSING".equals(currentOrderStatus)) {
-            throw new IllegalArgumentException(
-                String.format("Order cannot be cancelled. Current status: '%s'. Only PROCESSING orders can be cancelled", 
-                    currentOrderStatus)
-            );
-        }
-        
-        if (!"PAID".equals(currentPaymentStatus)) {
-            throw new IllegalArgumentException(
-                String.format("Order cannot be cancelled. Payment status: '%s'. Only PAID orders can be cancelled",
-                    currentPaymentStatus)
-            );
-        }
-        
-        try (Connection conn = DBUtil.getConnection()) {
-            conn.setAutoCommit(false);
-            
-            try {
-                orderDAO.updateStatus(orderId, "CANCELLED", "REFUNDING");
-            
-                productDAO.restoreStockForOrder(orderId);
-                
-                List<Transaction> payments = transactionDAO.getAllByOrderId(orderId);
-                
-                Transaction payment = null;
-                for (Transaction txn : payments) {
-                    if ("PAYMENT".equals(txn.getTransactionType())) {
-                        payment = txn;
-                        break;
-                    }
-                }
-                
-                if (payment != null) {
-                    Transaction refund = paymentGateway.initiateRefund(payment, "Cancelled by customer");
-                    transactionDAO.insert(refund);
-                }
-                
-                conn.commit();
-                
-            } catch (Exception e) {
-                conn.rollback();
-                throw e;
-            }
-        }
-    }
-    
-    /**
-     * Retrieves all orders with filters (admin view).
-     *
-     * @param filter the filter criteria
-     * @return map containing orders, page, size, total, totalPages
-     * @throws Exception if database operation fails
-     */
-    public Map<String, Object> getAllOrders(OrderFilterRequest filter) throws Exception {
-        int page = filter.getPageOrDefault();
-        int size = filter.getSizeOrDefault();
-        int offset = (page - 1) * size;
-        
-        List<Order> orders = orderDAO.getAll(filter, offset, size);
-        int total = orderDAO.countAll(filter);
-        
-        List<OrderResponse> orderResponses = new ArrayList<>();
-        for (Order order : orders) {
-            List<OrderItem> items = orderItemDAO.getByOrderId(order.getOrderId());
-            List<Transaction> payments = transactionDAO.getAllByOrderId(order.getOrderId());
-            orderResponses.add(buildOrderResponse(order, items, payments));
-        }
-        
-        Map<String, Object> result = new HashMap<>();
-        result.put("orders", orderResponses);
-        result.put("page", page);
-        result.put("size", size);
-        result.put("total", total);
-        result.put("totalPages", (int) Math.ceil((double) total / size));
-        
-        return result;
-    }
-    
-    /**
-     * Updates order status with validation against allowed transitions.
-     *
-     * @param orderId the order ID
-     * @param newOrderStatus the new order status
-     * @throws Exception if transition is not allowed
-     */
-    public void updateOrderStatus(Long orderId, String newOrderStatus) throws Exception {
-        Order order = orderDAO.getById(orderId);
-        if (order == null) {
-            throw new IllegalArgumentException("Order not found");
-        }
-        
-        String currentOrderStatus = order.getOrderStatus();
-        String currentPaymentStatus = order.getPaymentStatus();
-        
-        List<String> allowedNextOrderStatuses = ALLOWED_ORDER_STATUS_TRANSITIONS.get(currentOrderStatus);
-        if (allowedNextOrderStatuses == null || !allowedNextOrderStatuses.contains(newOrderStatus)) {
-            throw new IllegalArgumentException(
-                String.format("Cannot change order status from '%s' to '%s'. Allowed transitions: %s",
-                    currentOrderStatus, newOrderStatus, allowedNextOrderStatuses != null ? allowedNextOrderStatuses : "none")
-            );
-        }
-        
-        String newPaymentStatus = determinePaymentStatus(currentOrderStatus, newOrderStatus, currentPaymentStatus);
-        
-        if (!currentPaymentStatus.equals(newPaymentStatus)) {
-            List<String> allowedNextPaymentStatuses = ALLOWED_PAYMENT_STATUS_TRANSITIONS.get(currentPaymentStatus);
-            if (allowedNextPaymentStatuses == null || !allowedNextPaymentStatuses.contains(newPaymentStatus)) {
-                throw new IllegalArgumentException(
-                    String.format("Invalid payment status transition from '%s' to '%s' for order status change '%s' -> '%s'",
-                        currentPaymentStatus, newPaymentStatus, currentOrderStatus, newOrderStatus)
-                );
-            }
-        }
-        
-        orderDAO.updateStatus(orderId, newOrderStatus, newPaymentStatus);
+        return createOrder(customerId, items, address, request.getPaymentMethod(), false);
     }
 
     /**
@@ -792,18 +746,5 @@ public class OrderService {
         response.setPayments(paymentsList);
         
         return response;
-    }
-    
-    /**
-     * Inner class for order item request in direct order.
-     */
-    private static class OrderItemRequest {
-        private String productId;
-        private int quantity;
-        
-        public String getProductId() { return productId; }
-        public void setProductId(String productId) { this.productId = productId; }
-        public int getQuantity() { return quantity; }
-        public void setQuantity(int quantity) { this.quantity = quantity; }
     }
 }

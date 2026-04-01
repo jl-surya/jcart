@@ -1,8 +1,7 @@
 package controller;
 
 import config.AsyncExecutor;
-import dto.TransactionActionRequest;
-import dto.TransactionFilterRequest;
+import dto.TransactionSearchRequest;
 import jakarta.servlet.AsyncContext;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.annotation.WebServlet;
@@ -36,7 +35,7 @@ public class TransactionManagementController extends BaseController {
 
     /**
      * Handles GET requests for admin transaction endpoints.
-     * Supports listing all transactions or retrieving a single transaction by ID.
+     * Supports retrieving a single transaction by ID.
      *
      * @param req the HTTP request object
      * @param resp the HTTP response object
@@ -50,9 +49,10 @@ public class TransactionManagementController extends BaseController {
         String pathInfo = req.getPathInfo();
         
         if (pathInfo == null || pathInfo.equals("/")) {
-            handleGetTransactions(req, resp);
+            sendError(resp, "Use POST /admin/transactions/search for transaction search", HttpServletResponse.SC_METHOD_NOT_ALLOWED);
         } else if (pathInfo.matches("/\\d+")) {
             Long transactionId = Long.parseLong(pathInfo.substring(1));
+            
             handleGetTransaction(req, resp, transactionId);
         } else {
             sendError(resp, "Endpoint not found", HttpServletResponse.SC_NOT_FOUND);
@@ -61,7 +61,7 @@ public class TransactionManagementController extends BaseController {
 
     /**
      * Handles POST requests for admin transaction endpoints.
-     * Supports refund approval/rejection actions.
+     * Supports search and refund approval/rejection actions.
      *
      * @param req the HTTP request object
      * @param resp the HTTP response object
@@ -74,71 +74,29 @@ public class TransactionManagementController extends BaseController {
         
         String pathInfo = req.getPathInfo();
         
-        if (pathInfo == null || pathInfo.equals("/")) {
-            sendError(resp, "Method not allowed", HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+        StringBuilder sb = new StringBuilder();
+        try (BufferedReader reader = req.getReader()) {
+            String line;
+            while ((line = reader.readLine()) != null) {
+                sb.append(line);
+            }
+        }
+        String jsonBody = sb.toString();
+        
+        if ("/search".equals(pathInfo)) {
+            handleSearch(req, resp, jsonBody);
             return;
         }
         
-        if (pathInfo.matches("/\\d+/action")) {
+        if (pathInfo != null && pathInfo.matches("/\\d+/action")) {
             String[] parts = pathInfo.split("/");
             Long transactionId = Long.parseLong(parts[1]);
-            handleTransactionAction(req, resp, transactionId);
+            
+            handleTransactionAction(req, resp, transactionId, jsonBody);
             return;
         }
         
         sendError(resp, "Endpoint not found", HttpServletResponse.SC_NOT_FOUND);
-    }
-    
-    /**
-     * Handles GET /admin/transactions/ - retrieves all transactions with filters.
-     *
-     * @param req the HTTP request object
-     * @param resp the HTTP response object
-     */
-    private void handleGetTransactions(HttpServletRequest req, HttpServletResponse resp) {
-        AsyncContext asyncContext = req.startAsync();
-        asyncContext.setTimeout(60000);
-        
-        try {
-            AsyncExecutor.EXECUTOR.submit(() -> {
-                try {
-                    HttpServletResponse response = (HttpServletResponse) asyncContext.getResponse();
-                    HttpServletRequest request = (HttpServletRequest) asyncContext.getRequest();
-                    
-                    String sessionToken = getSessionTokenFromCookie(request);
-                    Admin currentAdmin = adminService.getCurrentAdmin(sessionToken);
-                    if (currentAdmin == null) {
-                        sendError(response, "Unauthorized", HttpServletResponse.SC_UNAUTHORIZED);
-                        return;
-                    }
-                    
-                    if (!adminService.hasPermission(currentAdmin, AdminService.PERM_TRANSACTION_VIEW)) {
-                        sendError(response, "Permission denied. Requires 'transactions:view'", 
-                                 HttpServletResponse.SC_FORBIDDEN);
-                        return;
-                    }
-                    
-                    TransactionFilterRequest filter = parseTransactionFilterRequest(request);
-                    Map<String, Object> result = transactionService.getAllTransactions(filter);
-                    
-                    sendSuccess(response, result);
-                    
-                } catch (Exception e) {
-                    try {
-                        sendError((HttpServletResponse) asyncContext.getResponse(), e.getMessage(), 
-                                 HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
-                    } catch (IOException ignored) {}
-                } finally {
-                    asyncContext.complete();
-                }
-            });
-        } catch (RejectedExecutionException ex) {
-            try {
-                sendError(resp, "Server overloaded", HttpServletResponse.SC_SERVICE_UNAVAILABLE);
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
-        }
     }
     
     /**
@@ -159,6 +117,7 @@ public class TransactionManagementController extends BaseController {
                     HttpServletRequest request = (HttpServletRequest) asyncContext.getRequest();
                     
                     String sessionToken = getSessionTokenFromCookie(request);
+                    
                     Admin currentAdmin = adminService.getCurrentAdmin(sessionToken);
                     if (currentAdmin == null) {
                         sendError(response, "Unauthorized", HttpServletResponse.SC_UNAUTHORIZED);
@@ -171,7 +130,7 @@ public class TransactionManagementController extends BaseController {
                         return;
                     }
                     
-                    Transaction transaction = transactionService.getTransaction(transactionId);
+                    Transaction transaction = transactionService.getTransaction(transactionId, null);
                     
                     sendSuccess(response, transaction);
                     
@@ -192,15 +151,15 @@ public class TransactionManagementController extends BaseController {
             }
         }
     }
-    
+        
     /**
-     * Handles POST /admin/transactions/{id}/action - processes refund approval/rejection.
+     * Handles POST /admin/transactions/search - searches transactions with filters.
      *
      * @param req the HTTP request object
      * @param resp the HTTP response object
-     * @param transactionId the transaction ID
+     * @param jsonBody the request body as JSON string
      */
-    private void handleTransactionAction(HttpServletRequest req, HttpServletResponse resp, Long transactionId) {
+    private void handleSearch(HttpServletRequest req, HttpServletResponse resp, String jsonBody) {
         AsyncContext asyncContext = req.startAsync();
         asyncContext.setTimeout(60000);
         
@@ -211,6 +170,62 @@ public class TransactionManagementController extends BaseController {
                     HttpServletRequest request = (HttpServletRequest) asyncContext.getRequest();
                     
                     String sessionToken = getSessionTokenFromCookie(request);
+                    
+                    Admin currentAdmin = adminService.getCurrentAdmin(sessionToken);
+                    if (currentAdmin == null) {
+                        sendError(response, "Unauthorized", HttpServletResponse.SC_UNAUTHORIZED);
+                        return;
+                    }
+                    
+                    if (!adminService.hasPermission(currentAdmin, AdminService.PERM_TRANSACTION_VIEW)) {
+                        sendError(response, "Permission denied. Requires 'transactions:view'", 
+                                 HttpServletResponse.SC_FORBIDDEN);
+                        return;
+                    }
+                    
+                    TransactionSearchRequest searchReq = parseSearchRequest(jsonBody);
+                    Map<String, Object> result = transactionService.searchTransactions(searchReq, true);
+                    
+                    sendSuccess(response, result);
+                    
+                } catch (Exception e) {
+                    try {
+                        sendError((HttpServletResponse) asyncContext.getResponse(), e.getMessage(), 
+                                 HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+                    } catch (IOException ignored) {}
+                } finally {
+                    asyncContext.complete();
+                }
+            });
+        } catch (RejectedExecutionException ex) {
+            try {
+                sendError(resp, "Server overloaded", HttpServletResponse.SC_SERVICE_UNAVAILABLE);
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
+    }
+
+    /**
+     * Handles POST /admin/transactions/{id}/action - processes refund approval/rejection.
+     *
+     * @param req the HTTP request object
+     * @param resp the HTTP response object
+     * @param transactionId the transaction ID
+     * @param jsonBody the request body as JSON string
+     */
+    private void handleTransactionAction(HttpServletRequest req, HttpServletResponse resp, Long transactionId, String jsonBody) {
+        AsyncContext asyncContext = req.startAsync();
+        asyncContext.setTimeout(60000);
+        
+        try {
+            AsyncExecutor.EXECUTOR.submit(() -> {
+                try {
+                    HttpServletResponse response = (HttpServletResponse) asyncContext.getResponse();
+                    HttpServletRequest request = (HttpServletRequest) asyncContext.getRequest();
+                    
+                    String sessionToken = getSessionTokenFromCookie(request);
+                    
                     Admin currentAdmin = adminService.getCurrentAdmin(sessionToken);
                     if (currentAdmin == null) {
                         sendError(response, "Unauthorized", HttpServletResponse.SC_UNAUTHORIZED);
@@ -222,15 +237,6 @@ public class TransactionManagementController extends BaseController {
                                  HttpServletResponse.SC_FORBIDDEN);
                         return;
                     }
-                    
-                    StringBuilder sb = new StringBuilder();
-                    try (BufferedReader reader = request.getReader()) {
-                        String line;
-                        while ((line = reader.readLine()) != null) {
-                            sb.append(line);
-                        }
-                    }
-                    String jsonBody = sb.toString();
                     
                     String method = JsonUtil.getString(jsonBody, "_method");
                     String action = JsonUtil.getString(jsonBody, "action");
@@ -265,43 +271,45 @@ public class TransactionManagementController extends BaseController {
     }
     
     /**
-     * Parses request parameters into TransactionFilterRequest object.
+     * Parses JSON body into TransactionSearchRequest object.
      *
-     * @param req the HTTP request object
-     * @return populated TransactionFilterRequest
+     * @param json the JSON string
+     * @return populated TransactionSearchRequest
      */
-    private TransactionFilterRequest parseTransactionFilterRequest(HttpServletRequest req) {
-        TransactionFilterRequest filter = new TransactionFilterRequest();
-        filter.setCustomerId(req.getParameter("customerId"));
+    private TransactionSearchRequest parseSearchRequest(String json) {
+        TransactionSearchRequest searchReq = new TransactionSearchRequest();
+        searchReq.setKeyword(JsonUtil.getString(json, "keyword"));
+        searchReq.setCustomerId(JsonUtil.getString(json, "customerId"));
         
-        String orderId = req.getParameter("orderId");
+        String orderId = JsonUtil.getString(json, "orderId");
         if (orderId != null) {
             try {
-                filter.setOrderId(Long.parseLong(orderId));
+                searchReq.setOrderId(Long.parseLong(orderId));
             } catch (NumberFormatException ignored) {}
         }
         
-        filter.setType(req.getParameter("type"));
-        filter.setStatus(req.getParameter("status"));
-        filter.setFromDate(req.getParameter("fromDate"));
-        filter.setToDate(req.getParameter("toDate"));
-        filter.setSortBy(req.getParameter("sortBy"));
-        filter.setSortDir(req.getParameter("sortDir"));
+        searchReq.setType(JsonUtil.getString(json, "type"));
+        searchReq.setStatus(JsonUtil.getString(json, "status"));
+        searchReq.setPaymentMethod(JsonUtil.getString(json, "paymentMethod"));
+        searchReq.setFromDate(JsonUtil.getString(json, "fromDate"));
+        searchReq.setToDate(JsonUtil.getString(json, "toDate"));
+        searchReq.setSortBy(JsonUtil.getString(json, "sortBy"));
+        searchReq.setSortDir(JsonUtil.getString(json, "sortDir"));
         
-        String page = req.getParameter("page");
+        String page = JsonUtil.getString(json, "page");
         if (page != null) {
             try {
-                filter.setPage(Integer.parseInt(page));
+                searchReq.setPage(Integer.parseInt(page));
             } catch (NumberFormatException ignored) {}
         }
         
-        String size = req.getParameter("size");
+        String size = JsonUtil.getString(json, "size");
         if (size != null) {
             try {
-                filter.setSize(Integer.parseInt(size));
+                searchReq.setSize(Integer.parseInt(size));
             } catch (NumberFormatException ignored) {}
         }
         
-        return filter;
+        return searchReq;
     }
 }

@@ -1,7 +1,7 @@
 package controller;
 
 import config.AsyncExecutor;
-import dto.OrderFilterRequest;
+import dto.OrderSearchRequest;
 import dto.OrderResponse;
 import jakarta.servlet.AsyncContext;
 import jakarta.servlet.ServletException;
@@ -35,7 +35,7 @@ public class OrderManagementController extends BaseController {
 
     /**
      * Handles GET requests for admin order endpoints.
-     * Supports listing all orders or retrieving a single order by ID.
+     * Supports retrieving a single order by ID.
      *
      * @param req the HTTP request object
      * @param resp the HTTP response object
@@ -49,9 +49,10 @@ public class OrderManagementController extends BaseController {
         String pathInfo = req.getPathInfo();
         
         if (pathInfo == null || pathInfo.equals("/")) {
-            handleGetOrders(req, resp);
+            sendError(resp, "Use POST /admin/orders/search for order search", HttpServletResponse.SC_METHOD_NOT_ALLOWED);
         } else if (pathInfo.matches("/\\d+")) {
             Long orderId = Long.parseLong(pathInfo.substring(1));
+            
             handleGetOrder(req, resp, orderId);
         } else {
             sendError(resp, "Endpoint not found", HttpServletResponse.SC_NOT_FOUND);
@@ -60,7 +61,7 @@ public class OrderManagementController extends BaseController {
 
     /**
      * Handles POST requests for admin order endpoints.
-     * Supports updating order status.
+     * Supports search and updating order status.
      *
      * @param req the HTTP request object
      * @param resp the HTTP response object
@@ -73,71 +74,29 @@ public class OrderManagementController extends BaseController {
         
         String pathInfo = req.getPathInfo();
         
-        if (pathInfo == null || pathInfo.equals("/")) {
-            sendError(resp, "Method not allowed", HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+        StringBuilder sb = new StringBuilder();
+        try (BufferedReader reader = req.getReader()) {
+            String line;
+            while ((line = reader.readLine()) != null) {
+                sb.append(line);
+            }
+        }
+        String jsonBody = sb.toString();
+        
+        if ("/search".equals(pathInfo)) {
+            handleSearch(req, resp, jsonBody);
             return;
         }
         
-        if (pathInfo.matches("/\\d+/status")) {
+        if (pathInfo != null && pathInfo.matches("/\\d+/status")) {
             String[] parts = pathInfo.split("/");
             Long orderId = Long.parseLong(parts[1]);
-            handleUpdateStatus(req, resp, orderId);
+            
+            handleUpdateStatus(req, resp, orderId, jsonBody);
             return;
         }
         
         sendError(resp, "Endpoint not found", HttpServletResponse.SC_NOT_FOUND);
-    }
-    
-    /**
-     * Handles GET /admin/orders/ - retrieves all orders with filters.
-     *
-     * @param req the HTTP request object
-     * @param resp the HTTP response object
-     */
-    private void handleGetOrders(HttpServletRequest req, HttpServletResponse resp) {
-        AsyncContext asyncContext = req.startAsync();
-        asyncContext.setTimeout(60000);
-        
-        try {
-            AsyncExecutor.EXECUTOR.submit(() -> {
-                try {
-                    HttpServletResponse response = (HttpServletResponse) asyncContext.getResponse();
-                    HttpServletRequest request = (HttpServletRequest) asyncContext.getRequest();
-                    
-                    String sessionToken = getSessionTokenFromCookie(request);
-                    Admin currentAdmin = adminService.getCurrentAdmin(sessionToken);
-                    if (currentAdmin == null) {
-                        sendError(response, "Unauthorized", HttpServletResponse.SC_UNAUTHORIZED);
-                        return;
-                    }
-                    
-                    if (!adminService.hasPermission(currentAdmin, AdminService.PERM_ORDER_VIEW)) {
-                        sendError(response, "Permission denied. Requires 'orders:view'", 
-                                 HttpServletResponse.SC_FORBIDDEN);
-                        return;
-                    }
-                    
-                    OrderFilterRequest filter = parseOrderFilterRequest(request);
-                    Map<String, Object> result = orderService.getAllOrders(filter);
-                    
-                    sendSuccess(response, result);
-                    
-                } catch (Exception e) {
-                    try {
-                        sendError((HttpServletResponse) asyncContext.getResponse(), e.getMessage(), 
-                                 HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
-                    } catch (IOException ignored) {}
-                } finally {
-                    asyncContext.complete();
-                }
-            });
-        } catch (RejectedExecutionException ex) {
-            try {
-                sendError(resp, "Server overloaded", HttpServletResponse.SC_SERVICE_UNAVAILABLE);
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
-        }
     }
     
     /**
@@ -158,6 +117,7 @@ public class OrderManagementController extends BaseController {
                     HttpServletRequest request = (HttpServletRequest) asyncContext.getRequest();
                     
                     String sessionToken = getSessionTokenFromCookie(request);
+                    
                     Admin currentAdmin = adminService.getCurrentAdmin(sessionToken);
                     if (currentAdmin == null) {
                         sendError(response, "Unauthorized", HttpServletResponse.SC_UNAUTHORIZED);
@@ -191,15 +151,15 @@ public class OrderManagementController extends BaseController {
             }
         }
     }
-    
+        
     /**
-     * Handles POST /admin/orders/{id}/status - updates order status.
+     * Handles POST /admin/orders/search - searches orders with filters.
      *
      * @param req the HTTP request object
      * @param resp the HTTP response object
-     * @param orderId the order ID
+     * @param jsonBody the request body as JSON string
      */
-    private void handleUpdateStatus(HttpServletRequest req, HttpServletResponse resp, Long orderId) {
+    private void handleSearch(HttpServletRequest req, HttpServletResponse resp, String jsonBody) {
         AsyncContext asyncContext = req.startAsync();
         asyncContext.setTimeout(60000);
         
@@ -210,6 +170,62 @@ public class OrderManagementController extends BaseController {
                     HttpServletRequest request = (HttpServletRequest) asyncContext.getRequest();
                     
                     String sessionToken = getSessionTokenFromCookie(request);
+                    
+                    Admin currentAdmin = adminService.getCurrentAdmin(sessionToken);
+                    if (currentAdmin == null) {
+                        sendError(response, "Unauthorized", HttpServletResponse.SC_UNAUTHORIZED);
+                        return;
+                    }
+                    
+                    if (!adminService.hasPermission(currentAdmin, AdminService.PERM_ORDER_VIEW)) {
+                        sendError(response, "Permission denied. Requires 'orders:view'", 
+                                 HttpServletResponse.SC_FORBIDDEN);
+                        return;
+                    }
+                    
+                    OrderSearchRequest searchReq = parseSearchRequest(jsonBody);
+                    Map<String, Object> result = orderService.searchOrders(searchReq, true);
+                    
+                    sendSuccess(response, result);
+                    
+                } catch (Exception e) {
+                    try {
+                        sendError((HttpServletResponse) asyncContext.getResponse(), e.getMessage(), 
+                                 HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+                    } catch (IOException ignored) {}
+                } finally {
+                    asyncContext.complete();
+                }
+            });
+        } catch (RejectedExecutionException ex) {
+            try {
+                sendError(resp, "Server overloaded", HttpServletResponse.SC_SERVICE_UNAVAILABLE);
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
+    }
+
+    /**
+     * Handles POST /admin/orders/{id}/status - updates order status.
+     *
+     * @param req the HTTP request object
+     * @param resp the HTTP response object
+     * @param orderId the order ID
+     * @param jsonBody the request body as JSON string
+     */
+    private void handleUpdateStatus(HttpServletRequest req, HttpServletResponse resp, Long orderId, String jsonBody) {
+        AsyncContext asyncContext = req.startAsync();
+        asyncContext.setTimeout(60000);
+        
+        try {
+            AsyncExecutor.EXECUTOR.submit(() -> {
+                try {
+                    HttpServletResponse response = (HttpServletResponse) asyncContext.getResponse();
+                    HttpServletRequest request = (HttpServletRequest) asyncContext.getRequest();
+                    
+                    String sessionToken = getSessionTokenFromCookie(request);
+                    
                     Admin currentAdmin = adminService.getCurrentAdmin(sessionToken);
                     if (currentAdmin == null) {
                         sendError(response, "Unauthorized", HttpServletResponse.SC_UNAUTHORIZED);
@@ -221,15 +237,6 @@ public class OrderManagementController extends BaseController {
                                  HttpServletResponse.SC_FORBIDDEN);
                         return;
                     }
-                    
-                    StringBuilder sb = new StringBuilder();
-                    try (BufferedReader reader = request.getReader()) {
-                        String line;
-                        while ((line = reader.readLine()) != null) {
-                            sb.append(line);
-                        }
-                    }
-                    String jsonBody = sb.toString();
                     
                     String method = JsonUtil.getString(jsonBody, "_method");
                     String status = JsonUtil.getString(jsonBody, "status");
@@ -263,49 +270,51 @@ public class OrderManagementController extends BaseController {
     }
     
     /**
-     * Parses request parameters into OrderFilterRequest object.
+     * Parses JSON body into OrderSearchRequest object.
      *
-     * @param req the HTTP request object
-     * @return populated OrderFilterRequest
+     * @param json the JSON string
+     * @return populated OrderSearchRequest
      */
-    private OrderFilterRequest parseOrderFilterRequest(HttpServletRequest req) {
-        OrderFilterRequest filter = new OrderFilterRequest();
-        filter.setCustomerId(req.getParameter("customerId"));
-        filter.setStatus(req.getParameter("status"));
-        filter.setFromDate(req.getParameter("fromDate"));
-        filter.setToDate(req.getParameter("toDate"));
+    private OrderSearchRequest parseSearchRequest(String json) {
+        OrderSearchRequest searchReq = new OrderSearchRequest();
+        searchReq.setKeyword(JsonUtil.getString(json, "keyword"));
+        searchReq.setCustomerId(JsonUtil.getString(json, "customerId"));
+        searchReq.setStatus(JsonUtil.getString(json, "status"));
+        searchReq.setPaymentStatus(JsonUtil.getString(json, "paymentStatus"));
+        searchReq.setFromDate(JsonUtil.getString(json, "fromDate"));
+        searchReq.setToDate(JsonUtil.getString(json, "toDate"));
         
-        String minAmount = req.getParameter("minAmount");
+        String minAmount = JsonUtil.getString(json, "minAmount");
         if (minAmount != null) {
             try {
-                filter.setMinAmount(Double.parseDouble(minAmount));
+                searchReq.setMinAmount(Double.parseDouble(minAmount));
             } catch (NumberFormatException ignored) {}
         }
         
-        String maxAmount = req.getParameter("maxAmount");
+        String maxAmount = JsonUtil.getString(json, "maxAmount");
         if (maxAmount != null) {
             try {
-                filter.setMaxAmount(Double.parseDouble(maxAmount));
+                searchReq.setMaxAmount(Double.parseDouble(maxAmount));
             } catch (NumberFormatException ignored) {}
         }
         
-        filter.setSortBy(req.getParameter("sortBy"));
-        filter.setSortDir(req.getParameter("sortDir"));
+        searchReq.setSortBy(JsonUtil.getString(json, "sortBy"));
+        searchReq.setSortDir(JsonUtil.getString(json, "sortDir"));
         
-        String page = req.getParameter("page");
+        String page = JsonUtil.getString(json, "page");
         if (page != null) {
             try {
-                filter.setPage(Integer.parseInt(page));
+                searchReq.setPage(Integer.parseInt(page));
             } catch (NumberFormatException ignored) {}
         }
         
-        String size = req.getParameter("size");
+        String size = JsonUtil.getString(json, "size");
         if (size != null) {
             try {
-                filter.setSize(Integer.parseInt(size));
+                searchReq.setSize(Integer.parseInt(size));
             } catch (NumberFormatException ignored) {}
         }
         
-        return filter;
+        return searchReq;
     }
 }

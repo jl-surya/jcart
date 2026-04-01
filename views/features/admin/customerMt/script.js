@@ -99,6 +99,13 @@
      * Initialize all event listeners
      */
     function initializeEventListeners() {
+        var retryBtn = document.getElementById('retryBtn');
+        if (retryBtn) {
+            retryBtn.addEventListener('click', function() {
+                loadCustomers(1, 15);
+            });
+        }
+
         var applyFiltersBtn = document.getElementById('applyFiltersBtn');
         if (applyFiltersBtn) {
             applyFiltersBtn.addEventListener('click', function () {
@@ -225,7 +232,12 @@
             
             updateStats(result.total, result.activeCount, result.inactiveCount);
             
-            renderCustomerTable();
+            if (customersData.length === 0) {
+                showEmptyState();
+            } else {
+                renderCustomerTable();
+                showContent();
+            }
             
             if (pagination) {
                 pagination.update({
@@ -238,7 +250,7 @@
 
         } catch (error) {
             console.error('Error loading customers:', error);
-            showTableError('Failed to load customers');
+            showErrorState('Failed to load customers. Please try again.');
         }
     }
     
@@ -271,11 +283,58 @@
      * Show loading state
      */
     function showLoadingState() {
-        document.getElementById('customerTableBody').innerHTML = 
-            '<tr class="loading-row"><td colspan="5">' +
-            '<div class="loading-spinner"></div>' +
-            '<span>Loading customers...</span>' +
-            '</td></tr>';
+        hideAllStates();
+        var loadingState = document.getElementById('loadingState');
+        if (loadingState) loadingState.classList.remove('hidden');
+    }
+
+    /**
+     * Show error state
+     */
+    function showErrorState(message) {
+        hideAllStates();
+        var errorState = document.getElementById('errorState');
+        var errorMessage = document.getElementById('errorMessage');
+        if (errorState) errorState.classList.remove('hidden');
+        if (errorMessage) errorMessage.textContent = message || 'Something went wrong. Please try again.';
+    }
+
+    /**
+     * Show empty state
+     */
+    function showEmptyState() {
+        hideAllStates();
+        var emptyState = document.getElementById('emptyState');
+        var emptyMessage = document.getElementById('emptyMessage');
+        if (emptyState) emptyState.classList.remove('hidden');
+        if (emptyMessage) {
+            var hasFilters = searchTerm || statusFilter;
+            emptyMessage.textContent = hasFilters 
+                ? 'No customers match your filters. Try adjusting the filters.'
+                : 'No customers in the system yet.';
+        }
+    }
+
+    /**
+     * Show content
+     */
+    function showContent() {
+        hideAllStates();
+        var content = document.getElementById('customersContent');
+        if (content) content.classList.remove('hidden');
+    }
+
+    /**
+     * Hide all states
+     */
+    function hideAllStates() {
+        var states = ['loadingState', 'errorState', 'emptyState'];
+        states.forEach(function(id) {
+            var el = document.getElementById(id);
+            if (el) el.classList.add('hidden');
+        });
+        var content = document.getElementById('customersContent');
+        if (content) content.classList.add('hidden');
     }
 
     /**

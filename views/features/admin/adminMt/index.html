@@ -122,30 +122,65 @@
                     </div>
                 </div>
 
-                <div class="table-container">
-                    <table class="data-table">
-                        <thead>
-                            <tr>
-                                <th>Admin</th>
-                                <th>Role</th>
-                                <th>Permissions</th>
-                                <th>Status</th>
-                                <th class="actions-header">Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody id="adminTableBody">
-                            <tr class="loading-row">
-                                <td colspan="5">
-                                    <div class="loading-spinner"></div>
-                                    <span>Loading administrators...</span>
-                                </td>
-                            </tr>
-                        </tbody>
-                    </table>
+                <!-- Loading State -->
+                <div id="loadingState" class="state-message">
+                    <div class="loading-spinner"></div>
+                    <p>Loading administrators...</p>
                 </div>
 
-                <!-- Shared Pagination Component -->
-                <div id="paginationPlaceholder"></div>
+                <!-- Error State -->
+                <div id="errorState" class="state-message error-state hidden">
+                    <div class="error-icon">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <circle cx="12" cy="12" r="10"/>
+                            <line x1="15" y1="9" x2="9" y2="15"/>
+                            <line x1="9" y1="9" x2="15" y2="15"/>
+                        </svg>
+                    </div>
+                    <h3>Unable to Load Administrators</h3>
+                    <p id="errorMessage">Something went wrong. Please try again.</p>
+                    <button type="button" class="btn btn-primary" id="retryBtn">Try Again</button>
+                </div>
+
+                <!-- Empty State -->
+                <div id="emptyState" class="state-message empty-state hidden">
+                    <div class="empty-icon">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+                            <circle cx="12" cy="7" r="4"/>
+                        </svg>
+                    </div>
+                    <h3>No Administrators Found</h3>
+                    <p id="emptyMessage">No administrators found in the system.</p>
+                </div>
+
+                <!-- Admin Content -->
+                <div id="adminContent" class="hidden">
+                    <div class="table-container">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>Admin</th>
+                                    <th>Role</th>
+                                    <th>Permissions</th>
+                                    <th>Status</th>
+                                    <th class="actions-header">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="adminTableBody">
+                                <tr class="loading-row">
+                                    <td colspan="5">
+                                        <div class="loading-spinner"></div>
+                                        <span>Loading admins...</span>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- Shared Pagination Component -->
+                    <div id="paginationPlaceholder"></div>
+                </div>
             </section>
         </div>
     </main>

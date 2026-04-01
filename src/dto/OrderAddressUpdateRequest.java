@@ -1,14 +1,14 @@
 package dto;
 
 /**
- * UpdateOrderAddressRequest holds request details for updating order shipping address.
+ * OrderAddressUpdateRequest holds request details for updating order shipping address.
  * 
  * Includes:
  * - Address selection type (saved address or one-time address)
  * - Saved address ID (if using existing address)
  * - One-time address details (if using new address)
  */
-public class UpdateOrderAddressRequest {
+public class OrderAddressUpdateRequest {
     private String addressType;
     private Long addressId;
     private OrderRequest.OneTimeAddress oneTimeAddress;

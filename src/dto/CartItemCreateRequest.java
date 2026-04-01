@@ -1,13 +1,13 @@
 package dto;
 
 /**
- * CartItemRequest holds request details for adding an item to cart.
+ * CartItemCreateRequest holds request details for adding an item to cart.
  * 
  * Includes:
  * - Product ID to identify the item
  * - Quantity to add to cart
  */
-public class CartItemRequest {
+public class CartItemCreateRequest {
     private String productId;
     private Integer quantity;
     

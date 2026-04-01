@@ -1,23 +1,26 @@
 package dto;
 
 /**
- * TransactionFilterRequest holds search and filter criteria for transaction listing.
+ * TransactionSearchRequest holds search and filter criteria for transaction listing.
  * 
  * Includes:
  * - Customer filter (customerId)
  * - Order filter (orderId)
  * - Type filter (PAYMENT, REFUND)
  * - Status filter (transaction status)
+ * - Payment method filter
  * - Date range filters (fromDate, toDate)
  * - Sorting options (sortBy, sortDir)
  * - Pagination parameters (page, size)
  * - Utility methods for default values
  */
-public class TransactionFilterRequest {
+public class TransactionSearchRequest {
+    private String keyword;
     private String customerId;
     private Long orderId;
     private String type;
     private String status;
+    private String paymentMethod;
     private String fromDate;
     private String toDate;
     private String sortBy;
@@ -25,6 +28,8 @@ public class TransactionFilterRequest {
     private Integer page;
     private Integer size;
     
+    public String getKeyword() { return keyword; }
+    public void setKeyword(String keyword) { this.keyword = keyword; }
     public String getCustomerId() { return customerId; }
     public void setCustomerId(String customerId) { this.customerId = customerId; }
     public Long getOrderId() { return orderId; }
@@ -33,6 +38,8 @@ public class TransactionFilterRequest {
     public void setType(String type) { this.type = type; }
     public String getStatus() { return status; }
     public void setStatus(String status) { this.status = status; }
+    public String getPaymentMethod() { return paymentMethod; }
+    public void setPaymentMethod(String paymentMethod) { this.paymentMethod = paymentMethod; }
     public String getFromDate() { return fromDate; }
     public void setFromDate(String fromDate) { this.fromDate = fromDate; }
     public String getToDate() { return toDate; }

@@ -1,12 +1,12 @@
 package dto;
 
 /**
- * UpdateCartItemRequest holds request details for updating cart item quantity.
+ * CartItemUpdateRequest holds request details for updating cart item quantity.
  * 
  * Includes:
  * - New quantity for the cart item
  */
-public class UpdateCartItemRequest {
+public class CartItemUpdateRequest {
     private Integer quantity;
     
     public Integer getQuantity() { return quantity; }

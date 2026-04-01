@@ -57,7 +57,7 @@ public class PaymentGateway {
     /**
      * Initiates a refund transaction for a payment.
      * Creates a pending refund that requires approval by an admin.
-     * Called by superadmin (A0000001) when customer requests cancellation.
+     * Called by superadmin when customer requests cancellation.
      *
      * @param originalPayment the original payment transaction
      * @param reason reason for refund request
@@ -72,8 +72,8 @@ public class PaymentGateway {
         refund.setTransactionStatus("PENDING");
         refund.setTransactionReference("REF" + System.currentTimeMillis() + originalPayment.getOrderId());
         refund.setRefundReason(reason);
-        refund.setProcessedByType("ADMIN");
-        refund.setProcessedBy("A0000001");
+        refund.setProcessedByType("CUSTOMER");
+        refund.setProcessedBy(originalPayment.getProcessedBy());
         
         return refund;
     }

@@ -190,7 +190,7 @@
         var discountedSubtotal = originalSubtotal - totalDiscount;
         
         var tax = discountedSubtotal * 0.08; // 8% tax
-        var shipping = discountedSubtotal > 100 ? 0 : (discountedSubtotal > 0 ? 10 : 0); // Free shipping over $100
+        var shipping = discountedSubtotal > 100 ? 0 : (discountedSubtotal > 0 ? 10 : 0); // Free shipping over ₹100
         var total = discountedSubtotal + tax + shipping;
 
         state.totals = {

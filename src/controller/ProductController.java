@@ -78,15 +78,17 @@ public class ProductController extends BaseController {
         
         String pathInfo = req.getPathInfo();
         
-        if ("/search".equals(pathInfo)) {
-            StringBuilder sb = new StringBuilder();
-            try (BufferedReader reader = req.getReader()) {
-                String line;
-                while ((line = reader.readLine()) != null) {
-                    sb.append(line);
-                }
+        StringBuilder sb = new StringBuilder();
+        try (BufferedReader reader = req.getReader()) {
+            String line;
+            while ((line = reader.readLine()) != null) {
+                sb.append(line);
             }
-            handleSearch(req, resp, sb.toString());
+        }
+        String jsonBody = sb.toString();
+        
+        if ("/search".equals(pathInfo)) {
+            handleSearch(req, resp, jsonBody);
         } else {
             sendError(resp, "Endpoint not found", HttpServletResponse.SC_NOT_FOUND);
         }
@@ -163,11 +165,11 @@ public class ProductController extends BaseController {
                 try {
                     HttpServletResponse response = (HttpServletResponse) asyncContext.getResponse();
                     
-                    ProductSearchRequest searchReq = parseSearchRequestFromJson(jsonBody);
+                    ProductSearchRequest searchReq = parseSearchRequest(jsonBody);
                     
                     searchReq.setShowInactive(false);
                     
-                    Map<String, Object> result = productService.searchProducts(searchReq);
+                    Map<String, Object> result = productService.searchProducts(searchReq, false);
                     
                     sendSuccess(response, result);
                     
@@ -242,7 +244,7 @@ public class ProductController extends BaseController {
      * @param json the JSON string
      * @return populated ProductSearchRequest object
      */
-    private ProductSearchRequest parseSearchRequestFromJson(String json) {
+    private ProductSearchRequest parseSearchRequest(String json) {
         ProductSearchRequest searchReq = new ProductSearchRequest();
         searchReq.setKeyword(JsonUtil.getString(json, "keyword"));
         searchReq.setCategory(JsonUtil.getString(json, "category"));

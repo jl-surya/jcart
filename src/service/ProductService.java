@@ -94,67 +94,32 @@ public class ProductService {
     /**
      * Searches products with filters and pagination.
      *
-     * @param request the search request with filters and pagination
-     * @return map containing products, page, size, total, totalPages
+     * @param searchReq the search request with filters and pagination
+     * @param isAdmin if true, includes individual stat fields (activeCount, inactiveCount, lowStockCount) in response
+     * @return map containing products, page, size, total, totalPages, and optionally individual stat fields
      * @throws Exception if database operation fails
      */
-    public Map<String, Object> searchProducts(ProductSearchRequest request) throws Exception {
-        int page = request.getPageOrDefault();
-        int size = request.getSizeOrDefault();
+    public Map<String, Object> searchProducts(ProductSearchRequest searchReq, boolean isAdmin) throws Exception {
+        int page = searchReq.getPageOrDefault();
+        int size = searchReq.getSizeOrDefault();
         int offset = (page - 1) * size;
         
-        List<Product> products = productDAO.getAll(
-            request.getKeyword(),
-            request.getCategory(),
-            request.getAgeGroup(),
-            request.getGender(),
-            request.getSeasonality(),
-            request.getMinPrice(),
-            request.getMaxPrice(),
-            request.getInStock(),
-            request.getLowStock(),
-            request.getShowInactive(),
-            request.getSortByOrDefault(),
-            request.getSortDirOrDefault(),
-            offset,
-            size
-        );
-        
-        int total = productDAO.getAllCount(
-            request.getKeyword(),
-            request.getCategory(),
-            request.getAgeGroup(),
-            request.getGender(),
-            request.getSeasonality(),
-            request.getMinPrice(),
-            request.getMaxPrice(),
-            request.getInStock(),
-            request.getLowStock(),
-            request.getShowInactive()
-        );
-        
-        Map<String, Integer> stats = productDAO.getStats(
-            request.getKeyword(),
-            request.getCategory(),
-            request.getAgeGroup(),
-            request.getGender(),
-            request.getSeasonality(),
-            request.getMinPrice(),
-            request.getMaxPrice(),
-            request.getInStock(),
-            request.getLowStock(),
-            request.getShowInactive()
-        );
-        
+        List<Product> products = productDAO.getAll(searchReq, offset, size);
+        int total = productDAO.getAllCount(searchReq);
+
         Map<String, Object> result = new HashMap<>();
         result.put("products", products);
         result.put("page", page);
         result.put("size", size);
         result.put("total", total);
         result.put("totalPages", (int) Math.ceil((double) total / size));
-        result.put("activeCount", stats.getOrDefault("activeCount", 0));
-        result.put("inactiveCount", stats.getOrDefault("inactiveCount", 0));
-        result.put("lowStockCount", stats.getOrDefault("lowStockCount", 0));
+        
+        if(isAdmin){
+            Map<String, Integer> stats = productDAO.getStats(searchReq);
+            result.put("activeCount", stats.getOrDefault("activeCount", 0));
+            result.put("inactiveCount", stats.getOrDefault("inactiveCount", 0));
+            result.put("lowStockCount", stats.getOrDefault("lowStockCount", 0));
+        }
         
         return result;
     }

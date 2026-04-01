@@ -253,19 +253,22 @@
         state.isLoading = true;
         showLoading();
 
-        var params = new URLSearchParams();
-        params.append('page', state.pagination.currentPage);
-        params.append('size', state.pagination.pageSize);
-        params.append('sortBy', state.filters.sortBy);
-        params.append('sortDir', state.filters.sortDir);
+        var searchRequest = {
+            page: state.pagination.currentPage,
+            size: state.pagination.pageSize,
+            sortBy: state.filters.sortBy,
+            sortDir: state.filters.sortDir
+        };
 
-        if (state.filters.type) params.append('type', state.filters.type);
-        if (state.filters.status) params.append('status', state.filters.status);
-        if (state.filters.fromDate) params.append('fromDate', state.filters.fromDate);
-        if (state.filters.toDate) params.append('toDate', state.filters.toDate);
+        if (state.filters.type) searchRequest.type = state.filters.type;
+        if (state.filters.status) searchRequest.status = state.filters.status;
+        if (state.filters.fromDate) searchRequest.fromDate = state.filters.fromDate;
+        if (state.filters.toDate) searchRequest.toDate = state.filters.toDate;
 
-        fetch(TRANSACTION_API_BASE + '?' + params.toString(), {
-            method: 'GET',
+        fetch(TRANSACTION_API_BASE + '/search', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(searchRequest),
             credentials: 'include'
         })
         .then(function (response) {

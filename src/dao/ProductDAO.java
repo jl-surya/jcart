@@ -1,5 +1,6 @@
 package dao;
 
+import dto.ProductSearchRequest;
 import java.math.BigDecimal;
 import java.sql.*;
 import java.util.ArrayList;
@@ -90,28 +91,15 @@ public class ProductDAO {
     }
     
     /**
-     * Searches products with multiple filters and pagination.
+     * Retrieves products with filters and pagination.
      *
-     * @param keyword search keyword for product name or location
-     * @param category product category filter
-     * @param ageGroup age group filter
-     * @param gender gender filter
-     * @param seasonality seasonality filter
-     * @param minPrice minimum price filter
-     * @param maxPrice maximum price filter
-     * @param inStock filter for in-stock products only
-     * @param showInactive include inactive products
-     * @param sortBy sort column
-     * @param sortDir sort direction (ASC/DESC)
+     * @param filter the search request with filter criteria
      * @param offset pagination offset
      * @param limit pagination limit
      * @return list of products matching criteria
      * @throws Exception if database operation fails
      */
-    public List<Product> getAll(String keyword, String category, String ageGroup, String gender, 
-                                        String seasonality, Double minPrice, Double maxPrice,
-                                        Boolean inStock, Boolean lowStock, Boolean showInactive, String sortBy, 
-                                        String sortDir, int offset, int limit) throws Exception {
+    public List<Product> getAll(ProductSearchRequest filter, int offset, int limit) throws Exception {
         
         StringBuilder sql = new StringBuilder();
         sql.append("SELECT product_id, product_name, category, price, discount, tax_rate, stock_level, ")
@@ -120,68 +108,69 @@ public class ProductDAO {
         
         List<Object> params = new ArrayList<>();
         
-        if (showInactive != null) {
-            if (showInactive) {
+        if (filter.getShowInactive() != null) {
+            if (filter.getShowInactive()) {
                 sql.append("AND is_active = FALSE ");
             } else {
                 sql.append("AND is_active = TRUE ");
             }
         }
         
-        if (keyword != null && !keyword.isEmpty()) {
-            String searchPattern = "%" + keyword + "%";
+        if (filter.getKeyword() != null && !filter.getKeyword().isEmpty()) {
+            String searchPattern = "%" + filter.getKeyword() + "%";
             sql.append("AND (product_name ILIKE ? OR location ILIKE ?) ");
             params.add(searchPattern);
             params.add(searchPattern);
         }
         
-        if (category != null && !category.isEmpty()) {
+        if (filter.getCategory() != null && !filter.getCategory().isEmpty()) {
             sql.append("AND category = ? ");
-            params.add(category);
+            params.add(filter.getCategory());
         }
         
-        if (gender != null && !gender.isEmpty()) {
+        if (filter.getGender() != null && !filter.getGender().isEmpty()) {
             sql.append("AND gender = ? ");
-            params.add(gender);
+            params.add(filter.getGender());
         }
         
-        if (ageGroup != null && !ageGroup.isEmpty()) {
+        if (filter.getAgeGroup() != null && !filter.getAgeGroup().isEmpty()) {
             sql.append("AND age_group = ? ");
-            params.add(ageGroup);
+            params.add(filter.getAgeGroup());
         }
         
-        if (seasonality != null && !seasonality.isEmpty()) {
+        if (filter.getSeasonality() != null && !filter.getSeasonality().isEmpty()) {
             sql.append("AND seasonality = ? ");
-            params.add(seasonality);
+            params.add(filter.getSeasonality());
         }
         
-        if (minPrice != null) {
+        if (filter.getMinPrice() != null) {
             sql.append("AND price >= ? ");
-            params.add(BigDecimal.valueOf(minPrice));
+            params.add(BigDecimal.valueOf(filter.getMinPrice()));
         }
         
-        if (maxPrice != null) {
+        if (filter.getMaxPrice() != null) {
             sql.append("AND price <= ? ");
-            params.add(BigDecimal.valueOf(maxPrice));
+            params.add(BigDecimal.valueOf(filter.getMaxPrice()));
         }
         
-        if (lowStock != null && lowStock) {
+        if (filter.getLowStock() != null && filter.getLowStock()) {
             sql.append("AND stock_level > 0 AND stock_level <= 10 ");
-        } else if (inStock != null) {
-            if (inStock) {
+        } else if (filter.getInStock() != null) {
+            if (filter.getInStock()) {
                 sql.append("AND stock_level > 0 ");
             } else {
                 sql.append("AND stock_level = 0 ");
             }
         }
         
+        String sortBy = filter.getSortByOrDefault();
+        String sortDir = filter.getSortDirOrDefault();
         String primarySortColumn = validateSortColumn(sortBy);
-        String primarySortDir = sortDir != null && sortDir.equalsIgnoreCase("asc") ? "ASC" : "DESC";
         
         sql.append(" ORDER BY ");
         
         if (sortBy != null && !sortBy.isEmpty()) {
-            sql.append(primarySortColumn).append(" ").append(primarySortDir).append(", ");
+            sql.append(primarySortColumn).append(" ").append(sortDir).append(", ");
         } else {
             sql.append("created_at DESC, ");
         }
@@ -214,77 +203,66 @@ public class ProductDAO {
     /**
      * Counts products matching search criteria.
      *
-     * @param keyword search keyword
-     * @param category category filter
-     * @param ageGroup age group filter
-     * @param gender gender filter
-     * @param seasonality seasonality filter
-     * @param minPrice minimum price filter
-     * @param maxPrice maximum price filter
-     * @param inStock filter for in-stock products
-     * @param lowStock filter for low stock products (stock > 0 AND stock <= 10)
-     * @param showInactive include inactive products
+     * @param filter the search request with filter criteria
      * @return total count of matching products
      * @throws Exception if database operation fails
      */
-    public int getAllCount(String keyword, String category, String ageGroup, String gender, 
-                                String seasonality, Double minPrice, Double maxPrice,
-                                Boolean inStock, Boolean lowStock, Boolean showInactive) throws Exception {
+    public int getAllCount(ProductSearchRequest filter) throws Exception {
         
         StringBuilder sql = new StringBuilder();
         sql.append("SELECT COUNT(*) FROM products WHERE 1=1 ");
         
         List<Object> params = new ArrayList<>();
         
-        if (showInactive != null) {
-            if (showInactive) {
+        if (filter.getShowInactive() != null) {
+            if (filter.getShowInactive()) {
                 sql.append("AND is_active = FALSE ");
             } else {
                 sql.append("AND is_active = TRUE ");
             }
         }
         
-        if (keyword != null && !keyword.isEmpty()) {
-            String searchPattern = "%" + keyword + "%";
+        if (filter.getKeyword() != null && !filter.getKeyword().isEmpty()) {
+            String searchPattern = "%" + filter.getKeyword() + "%";
             sql.append("AND (product_name ILIKE ? OR location ILIKE ?) ");
             params.add(searchPattern);
             params.add(searchPattern);
         }
         
-        if (category != null && !category.isEmpty()) {
+        if (filter.getCategory() != null && !filter.getCategory().isEmpty()) {
             sql.append("AND category = ? ");
-            params.add(category);
+            params.add(filter.getCategory());
         }
         
-        if (gender != null && !gender.isEmpty()) {
+        if (filter.getGender() != null && !filter.getGender().isEmpty()) {
             sql.append("AND gender = ? ");
-            params.add(gender);
+            params.add(filter.getGender());
         }
         
-        if (ageGroup != null && !ageGroup.isEmpty()) {
+        if (filter.getAgeGroup() != null && !filter.getAgeGroup().isEmpty()) {
             sql.append("AND age_group = ? ");
-            params.add(ageGroup);
+            params.add(filter.getAgeGroup());
         }
         
-        if (seasonality != null && !seasonality.isEmpty()) {
+        if (filter.getSeasonality() != null && !filter.getSeasonality().isEmpty()) {
             sql.append("AND seasonality = ? ");
-            params.add(seasonality);
+            params.add(filter.getSeasonality());
         }
         
-        if (minPrice != null) {
+        if (filter.getMinPrice() != null) {
             sql.append("AND price >= ? ");
-            params.add(BigDecimal.valueOf(minPrice));
+            params.add(BigDecimal.valueOf(filter.getMinPrice()));
         }
         
-        if (maxPrice != null) {
+        if (filter.getMaxPrice() != null) {
             sql.append("AND price <= ? ");
-            params.add(BigDecimal.valueOf(maxPrice));
+            params.add(BigDecimal.valueOf(filter.getMaxPrice()));
         }
         
-        if (lowStock != null && lowStock) {
+        if (filter.getLowStock() != null && filter.getLowStock()) {
             sql.append("AND stock_level > 0 AND stock_level <= 10 ");
-        } else if (inStock != null) {
-            if (inStock) {
+        } else if (filter.getInStock() != null) {
+            if (filter.getInStock()) {
                 sql.append("AND stock_level > 0 ");
             } else {
                 sql.append("AND stock_level = 0 ");
@@ -308,25 +286,14 @@ public class ProductDAO {
     }
     
     /**
-     * Gets stats (active count, inactive count, low stock count) for search results.
+     * Gets product statistics based on filter criteria.
      * Low stock is defined as stock_level > 0 AND stock_level <= 10.
      *
-     * @param keyword search term
-     * @param category category filter
-     * @param ageGroup age group filter
-     * @param gender gender filter
-     * @param seasonality seasonality filter
-     * @param minPrice minimum price filter
-     * @param maxPrice maximum price filter
-     * @param inStock filter for in-stock products
-     * @param lowStock filter for low stock products (stock > 0 AND stock <= 10)
-     * @param showInactive include inactive products
-     * @return map with activeCount, inactiveCount, lowStockCount
+     * @param filter the search request with filter criteria
+     * @return Map containing product counts (activeCount, inactiveCount, lowStockCount)
      * @throws Exception if database operation fails
      */
-    public Map<String, Integer> getStats(String keyword, String category, String ageGroup, String gender, 
-                                                  String seasonality, Double minPrice, Double maxPrice,
-                                                  Boolean inStock, Boolean lowStock, Boolean showInactive) throws Exception {
+    public Map<String, Integer> getStats(ProductSearchRequest filter) throws Exception {
         
         StringBuilder sql = new StringBuilder();
         sql.append("SELECT ");
@@ -337,55 +304,55 @@ public class ProductDAO {
         
         List<Object> params = new ArrayList<>();
         
-        if (keyword != null && !keyword.isEmpty()) {
-            String searchPattern = "%" + keyword + "%";
+        if (filter.getKeyword() != null && !filter.getKeyword().isEmpty()) {
+            String searchPattern = "%" + filter.getKeyword() + "%";
             sql.append("AND (product_name ILIKE ? OR location ILIKE ?) ");
             params.add(searchPattern);
             params.add(searchPattern);
         }
         
-        if (category != null && !category.isEmpty()) {
+        if (filter.getCategory() != null && !filter.getCategory().isEmpty()) {
             sql.append("AND category = ? ");
-            params.add(category);
+            params.add(filter.getCategory());
         }
         
-        if (gender != null && !gender.isEmpty()) {
+        if (filter.getGender() != null && !filter.getGender().isEmpty()) {
             sql.append("AND gender = ? ");
-            params.add(gender);
+            params.add(filter.getGender());
         }
         
-        if (ageGroup != null && !ageGroup.isEmpty()) {
+        if (filter.getAgeGroup() != null && !filter.getAgeGroup().isEmpty()) {
             sql.append("AND age_group = ? ");
-            params.add(ageGroup);
+            params.add(filter.getAgeGroup());
         }
         
-        if (seasonality != null && !seasonality.isEmpty()) {
+        if (filter.getSeasonality() != null && !filter.getSeasonality().isEmpty()) {
             sql.append("AND seasonality = ? ");
-            params.add(seasonality);
+            params.add(filter.getSeasonality());
         }
         
-        if (minPrice != null) {
+        if (filter.getMinPrice() != null) {
             sql.append("AND price >= ? ");
-            params.add(BigDecimal.valueOf(minPrice));
+            params.add(BigDecimal.valueOf(filter.getMinPrice()));
         }
         
-        if (maxPrice != null) {
+        if (filter.getMaxPrice() != null) {
             sql.append("AND price <= ? ");
-            params.add(BigDecimal.valueOf(maxPrice));
+            params.add(BigDecimal.valueOf(filter.getMaxPrice()));
         }
         
-        if (lowStock != null && lowStock) {
+        if (filter.getLowStock() != null && filter.getLowStock()) {
             sql.append("AND stock_level > 0 AND stock_level <= 10 ");
-        } else if (inStock != null) {
-            if (inStock) {
+        } else if (filter.getInStock() != null) {
+            if (filter.getInStock()) {
                 sql.append("AND stock_level > 0 ");
             } else {
                 sql.append("AND stock_level = 0 ");
             }
         }
         
-        if (showInactive != null) {
-            if (showInactive) {
+        if (filter.getShowInactive() != null) {
+            if (filter.getShowInactive()) {
                 sql.append("AND is_active = FALSE ");
             } else {
                 sql.append("AND is_active = TRUE ");

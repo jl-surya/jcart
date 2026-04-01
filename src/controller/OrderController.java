@@ -1,10 +1,10 @@
 package controller;
 
 import config.AsyncExecutor;
-import dto.OrderFilterRequest;
+import dto.OrderSearchRequest;
 import dto.OrderRequest;
 import dto.DirectOrderRequest;
-import dto.UpdateOrderAddressRequest;
+import dto.OrderAddressUpdateRequest;
 import dto.OrderResponse;
 import jakarta.servlet.AsyncContext;
 import jakarta.servlet.ServletException;
@@ -54,9 +54,10 @@ public class OrderController extends BaseController {
         String pathInfo = req.getPathInfo();
         
         if (pathInfo == null || pathInfo.equals("/")) {
-            handleGetOrders(req, resp);
+            sendError(resp, "Use POST /customer/orders/search for order search", HttpServletResponse.SC_METHOD_NOT_ALLOWED);
         } else if (pathInfo.matches("/\\d+")) {
             Long orderId = Long.parseLong(pathInfo.substring(1));
+            
             handleGetOrder(req, resp, orderId);
         } else {
             sendError(resp, "Endpoint not found", HttpServletResponse.SC_NOT_FOUND);
@@ -65,7 +66,7 @@ public class OrderController extends BaseController {
 
     /**
      * Handles POST requests for customer order endpoints.
-     * Supports create from cart, direct order, update address, and cancel order.
+     * Supports search, create from cart, direct order, update address, and cancel order.
      *
      * @param req the HTTP request object
      * @param resp the HTTP response object
@@ -87,7 +88,10 @@ public class OrderController extends BaseController {
         }
         String jsonBody = sb.toString();
         
-        String method = JsonUtil.getString(jsonBody, "_method");
+        if ("/search".equals(pathInfo)) {
+            handleSearch(req, resp, jsonBody);
+            return;
+        }
         
         if ("/cart".equals(pathInfo)) {
             handleCreateFromCart(req, resp, jsonBody);
@@ -115,99 +119,7 @@ public class OrderController extends BaseController {
         
         sendError(resp, "Endpoint not found", HttpServletResponse.SC_NOT_FOUND);
     }
-    
-    /**
-     * Handles GET /customer/orders/ - retrieves customer's orders with filters.
-     *
-     * @param req the HTTP request object
-     * @param resp the HTTP response object
-     */
-    private void handleGetOrders(HttpServletRequest req, HttpServletResponse resp) {
-        AsyncContext asyncContext = req.startAsync();
-        asyncContext.setTimeout(60000);
         
-        try {
-            AsyncExecutor.EXECUTOR.submit(() -> {
-                try {
-                    HttpServletResponse response = (HttpServletResponse) asyncContext.getResponse();
-                    HttpServletRequest request = (HttpServletRequest) asyncContext.getRequest();
-                    
-                    String sessionToken = getSessionTokenFromCookie(request);
-                    Customer customer = customerService.getCurrentCustomer(sessionToken);
-                    if (customer == null) {
-                        sendError(response, "Unauthorized", HttpServletResponse.SC_UNAUTHORIZED);
-                        return;
-                    }
-                    
-                    OrderFilterRequest filter = parseOrderFilterRequest(request);
-                    Map<String, Object> result = orderService.getCustomerOrders(customer.getCustomerId(), filter);
-                    
-                    sendSuccess(response, result);
-                    
-                } catch (Exception e) {
-                    try {
-                        sendError((HttpServletResponse) asyncContext.getResponse(), e.getMessage(), 
-                                 HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
-                    } catch (IOException ignored) {}
-                } finally {
-                    asyncContext.complete();
-                }
-            });
-        } catch (RejectedExecutionException ex) {
-            try {
-                sendError(resp, "Server overloaded", HttpServletResponse.SC_SERVICE_UNAVAILABLE);
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
-        }
-    }
-    
-    /**
-     * Handles GET /customer/orders/{id} - retrieves a single order by ID.
-     *
-     * @param req the HTTP request object
-     * @param resp the HTTP response object
-     * @param orderId the order ID
-     */
-    private void handleGetOrder(HttpServletRequest req, HttpServletResponse resp, Long orderId) {
-        AsyncContext asyncContext = req.startAsync();
-        asyncContext.setTimeout(60000);
-        
-        try {
-            AsyncExecutor.EXECUTOR.submit(() -> {
-                try {
-                    HttpServletResponse response = (HttpServletResponse) asyncContext.getResponse();
-                    HttpServletRequest request = (HttpServletRequest) asyncContext.getRequest();
-                    
-                    String sessionToken = getSessionTokenFromCookie(request);
-                    Customer customer = customerService.getCurrentCustomer(sessionToken);
-                    if (customer == null) {
-                        sendError(response, "Unauthorized", HttpServletResponse.SC_UNAUTHORIZED);
-                        return;
-                    }
-                    
-                    OrderResponse orderResponse = orderService.getOrder(orderId, customer.getCustomerId());
-                    
-                    sendSuccess(response, orderResponse);
-                    
-                } catch (Exception e) {
-                    try {
-                        sendError((HttpServletResponse) asyncContext.getResponse(), e.getMessage(), 
-                                 HttpServletResponse.SC_NOT_FOUND);
-                    } catch (IOException ignored) {}
-                } finally {
-                    asyncContext.complete();
-                }
-            });
-        } catch (RejectedExecutionException ex) {
-            try {
-                sendError(resp, "Server overloaded", HttpServletResponse.SC_SERVICE_UNAVAILABLE);
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
-        }
-    }
-    
     /**
      * Handles POST /customer/orders/cart - creates order from cart items.
      *
@@ -303,6 +215,107 @@ public class OrderController extends BaseController {
     }
 
     /**
+     * Handles GET /customer/orders/{id} - retrieves a single order by ID.
+     *
+     * @param req the HTTP request object
+     * @param resp the HTTP response object
+     * @param orderId the order ID
+     */
+    private void handleGetOrder(HttpServletRequest req, HttpServletResponse resp, Long orderId) {
+        AsyncContext asyncContext = req.startAsync();
+        asyncContext.setTimeout(60000);
+        
+        try {
+            AsyncExecutor.EXECUTOR.submit(() -> {
+                try {
+                    HttpServletResponse response = (HttpServletResponse) asyncContext.getResponse();
+                    HttpServletRequest request = (HttpServletRequest) asyncContext.getRequest();
+                    
+                    String sessionToken = getSessionTokenFromCookie(request);
+                    Customer customer = customerService.getCurrentCustomer(sessionToken);
+                    if (customer == null) {
+                        sendError(response, "Unauthorized", HttpServletResponse.SC_UNAUTHORIZED);
+                        return;
+                    }
+                    
+                    OrderResponse orderResponse = orderService.getOrder(orderId, customer.getCustomerId());
+                    
+                    sendSuccess(response, orderResponse);
+                    
+                } catch (Exception e) {
+                    try {
+                        sendError((HttpServletResponse) asyncContext.getResponse(), e.getMessage(), 
+                                 HttpServletResponse.SC_NOT_FOUND);
+                    } catch (IOException ignored) {}
+                } finally {
+                    asyncContext.complete();
+                }
+            });
+        } catch (RejectedExecutionException ex) {
+            try {
+                sendError(resp, "Server overloaded", HttpServletResponse.SC_SERVICE_UNAVAILABLE);
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
+    }
+    
+    /**
+     * Handles GET /customer/orders/ - retrieves customer's orders with filters.
+     *
+     * @param req the HTTP request object
+     * @param resp the HTTP response object
+     */
+    /**
+     * Handles POST /customer/orders/search - searches orders with filters.
+     *
+     * @param req the HTTP request object
+     * @param resp the HTTP response object
+     * @param jsonBody the request body as JSON string
+     */
+    private void handleSearch(HttpServletRequest req, HttpServletResponse resp, String jsonBody) {
+        AsyncContext asyncContext = req.startAsync();
+        asyncContext.setTimeout(60000);
+        
+        try {
+            AsyncExecutor.EXECUTOR.submit(() -> {
+                try {
+                    HttpServletResponse response = (HttpServletResponse) asyncContext.getResponse();
+                    HttpServletRequest request = (HttpServletRequest) asyncContext.getRequest();
+                    
+                    String sessionToken = getSessionTokenFromCookie(request);
+                    Customer customer = customerService.getCurrentCustomer(sessionToken);
+                    if (customer == null) {
+                        sendError(response, "Unauthorized", HttpServletResponse.SC_UNAUTHORIZED);
+                        return;
+                    }
+                    
+                    OrderSearchRequest searchReq = parseSearchRequest(jsonBody);
+                    searchReq.setCustomerId(customer.getCustomerId());
+
+                    Map<String, Object> result = orderService.searchOrders(searchReq, false);
+                    
+                    sendSuccess(response, result);
+                    
+                } catch (Exception e) {
+                    try {
+                        sendError((HttpServletResponse) asyncContext.getResponse(), e.getMessage(), 
+                                 HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+                    } catch (IOException ignored) {}
+                } finally {
+                    asyncContext.complete();
+                }
+            });
+        } catch (RejectedExecutionException ex) {
+            try {
+                sendError(resp, "Server overloaded", HttpServletResponse.SC_SERVICE_UNAVAILABLE);
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
+    }
+
+    /**
      * Handles POST /customer/orders/{id}/address - updates shipping address for pending order.
      *
      * @param req the HTTP request object
@@ -328,7 +341,7 @@ public class OrderController extends BaseController {
                         return;
                     }
                     
-                    UpdateOrderAddressRequest addressRequest = parseUpdateAddressRequest(jsonBody);
+                    OrderAddressUpdateRequest addressRequest = parseUpdateAddressRequest(jsonBody);
                     orderService.updateOrderAddress(orderId, customer.getCustomerId(), addressRequest);
                     
                     sendSuccess(response, "Shipping address updated successfully", null);
@@ -483,13 +496,13 @@ public class OrderController extends BaseController {
     }
     
     /**
-     * Parses JSON into UpdateOrderAddressRequest object.
+     * Parses JSON into OrderAddressUpdateRequest object.
      *
      * @param json the JSON string
-     * @return populated UpdateOrderAddressRequest
+     * @return populated OrderAddressUpdateRequest
      */
-    private UpdateOrderAddressRequest parseUpdateAddressRequest(String json) {
-        UpdateOrderAddressRequest req = new UpdateOrderAddressRequest();
+    private OrderAddressUpdateRequest parseUpdateAddressRequest(String json) {
+        OrderAddressUpdateRequest req = new OrderAddressUpdateRequest();
         
         Map<String, String> parsed = JsonUtil.jsonToMap(json);
         
@@ -520,48 +533,50 @@ public class OrderController extends BaseController {
     }
     
     /**
-     * Parses request parameters into OrderFilterRequest object.
+     * Parses JSON body into OrderSearchRequest object.
      *
-     * @param req the HTTP request object
-     * @return populated OrderFilterRequest
+     * @param json the JSON string
+     * @return populated OrderSearchRequest
      */
-    private OrderFilterRequest parseOrderFilterRequest(HttpServletRequest req) {
-        OrderFilterRequest filter = new OrderFilterRequest();
-        filter.setStatus(req.getParameter("status"));
-        filter.setFromDate(req.getParameter("fromDate"));
-        filter.setToDate(req.getParameter("toDate"));
+    private OrderSearchRequest parseSearchRequest(String json) {
+        OrderSearchRequest searchReq = new OrderSearchRequest();
+        searchReq.setKeyword(JsonUtil.getString(json, "keyword"));
+        searchReq.setStatus(JsonUtil.getString(json, "status"));
+        searchReq.setPaymentStatus(JsonUtil.getString(json, "paymentStatus"));
+        searchReq.setFromDate(JsonUtil.getString(json, "fromDate"));
+        searchReq.setToDate(JsonUtil.getString(json, "toDate"));
         
-        String minAmount = req.getParameter("minAmount");
+        String minAmount = JsonUtil.getString(json, "minAmount");
         if (minAmount != null) {
             try {
-                filter.setMinAmount(Double.parseDouble(minAmount));
+                searchReq.setMinAmount(Double.parseDouble(minAmount));
             } catch (NumberFormatException ignored) {}
         }
         
-        String maxAmount = req.getParameter("maxAmount");
+        String maxAmount = JsonUtil.getString(json, "maxAmount");
         if (maxAmount != null) {
             try {
-                filter.setMaxAmount(Double.parseDouble(maxAmount));
+                searchReq.setMaxAmount(Double.parseDouble(maxAmount));
             } catch (NumberFormatException ignored) {}
         }
         
-        filter.setSortBy(req.getParameter("sortBy"));
-        filter.setSortDir(req.getParameter("sortDir"));
+        searchReq.setSortBy(JsonUtil.getString(json, "sortBy"));
+        searchReq.setSortDir(JsonUtil.getString(json, "sortDir"));
         
-        String page = req.getParameter("page");
+        String page = JsonUtil.getString(json, "page");
         if (page != null) {
             try {
-                filter.setPage(Integer.parseInt(page));
+                searchReq.setPage(Integer.parseInt(page));
             } catch (NumberFormatException ignored) {}
         }
         
-        String size = req.getParameter("size");
+        String size = JsonUtil.getString(json, "size");
         if (size != null) {
             try {
-                filter.setSize(Integer.parseInt(size));
+                searchReq.setSize(Integer.parseInt(size));
             } catch (NumberFormatException ignored) {}
         }
         
-        return filter;
+        return searchReq;
     }
 }

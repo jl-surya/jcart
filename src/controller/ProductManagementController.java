@@ -288,7 +288,7 @@ public class ProductManagementController extends BaseController {
                     }
 
                     ProductSearchRequest searchReq = parseSearchRequest(jsonBody);
-                    Map<String, Object> result = productService.searchProducts(searchReq);
+                    Map<String, Object> result = productService.searchProducts(searchReq, true);
                     
                     sendSuccess(response, result);
                     

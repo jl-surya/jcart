@@ -1,6 +1,6 @@
 package dao;
 
-import dto.TransactionFilterRequest;
+import dto.TransactionSearchRequest;
 import java.sql.*;
 import java.util.ArrayList;
 import java.util.List;
@@ -110,88 +110,36 @@ public class TransactionDAO {
         }
         return transactions;
     }
-    
+
     /**
-     * Retrieves transactions for a specific customer with filters.
+     * Retrieves transactions with filters and pagination.
      *
-     * @param customerId the customer ID
-     * @param filter the filter criteria
+     * @param filter the search request with filter criteria
      * @param offset pagination offset
      * @param limit pagination limit
-     * @return list of transactions
+     * @return list of transactions matching criteria
      * @throws Exception if database operation fails
      */
-    public List<Transaction> getByCustomerId(String customerId, TransactionFilterRequest filter, int offset, int limit) throws Exception {
-        StringBuilder sql = new StringBuilder();
-        sql.append("SELECT t.transaction_id, t.order_id, t.transaction_type, t.transaction_method, t.transaction_status, ")
-           .append("t.amount, t.transaction_reference, t.refund_reason, t.processed_by_type, t.processed_by, ")
-           .append("t.processed_at, t.verified_by, t.verified_at, t.created_at ")
-           .append("FROM transactions t JOIN orders o ON t.order_id = o.order_id ")
-           .append("WHERE o.customer_id = ? ");
-        
-        List<Object> params = new ArrayList<>();
-        params.add(customerId);
-        
-        if (filter.getType() != null && !filter.getType().isEmpty()) {
-            sql.append("AND t.transaction_type = ? ");
-            params.add(filter.getType());
-        }
-        
-        if (filter.getStatus() != null && !filter.getStatus().isEmpty()) {
-            sql.append("AND t.transaction_status = ? ");
-            params.add(filter.getStatus());
-        }
-        
-        if (filter.getFromDate() != null) {
-            sql.append("AND t.created_at >= ? ");
-            params.add(Timestamp.valueOf(filter.getFromDate() + " 00:00:00"));
-        }
-        
-        if (filter.getToDate() != null) {
-            sql.append("AND t.created_at <= ? ");
-            params.add(Timestamp.valueOf(filter.getToDate() + " 23:59:59"));
-        }
-        
-        String validSortBy = validateSortColumn(filter.getSortByOrDefault());
-        String validSortDir = filter.getSortDirOrDefault();
-        sql.append(" ORDER BY ").append(validSortBy).append(" ").append(validSortDir);
-        sql.append(" LIMIT ? OFFSET ?");
-        params.add(limit);
-        params.add(offset);
-        
-        List<Transaction> transactions = new ArrayList<>();
-        
-        try (Connection conn = DBUtil.getConnection();
-             PreparedStatement ps = conn.prepareStatement(sql.toString())) {
-            for (int i = 0; i < params.size(); i++) {
-                ps.setObject(i + 1, params.get(i));
-            }
-            try (ResultSet rs = ps.executeQuery()) {
-                while (rs.next()) {
-                    transactions.add(mapRow(rs));
-                }
-            }
-        }
-        return transactions;
-    }
-    
-    /**
-     * Retrieves all transactions with filters (admin view).
-     *
-     * @param filter the filter criteria
-     * @param offset pagination offset
-     * @param limit pagination limit
-     * @return list of transactions
-     * @throws Exception if database operation fails
-     */
-    public List<Transaction> getAll(TransactionFilterRequest filter, int offset, int limit) throws Exception {
+    public List<Transaction> getAll(TransactionSearchRequest filter, int offset, int limit) throws Exception {
         StringBuilder sql = new StringBuilder();
         sql.append("SELECT transaction_id, order_id, transaction_type, transaction_method, transaction_status, ")
            .append("amount, transaction_reference, refund_reason, processed_by_type, processed_by, ")
            .append("processed_at, verified_by, verified_at, created_at FROM transactions WHERE 1=1 ");
         
         List<Object> params = new ArrayList<>();
-        
+
+        if (filter.getKeyword() != null && !filter.getKeyword().isEmpty()) {
+            sql.append("AND (LOWER(transaction_reference) LIKE LOWER(?) OR ")
+               .append("LOWER(processed_by) LIKE LOWER(?) OR ");
+            String searchPattern = "%" + filter.getKeyword() + "%";
+            params.add(searchPattern);
+        }
+
+        if (filter.getCustomerId() != null && !filter.getCustomerId().isEmpty()) {
+            sql.append("AND processed_by = ? ");
+            params.add(filter.getCustomerId());
+        }
+
         if (filter.getOrderId() != null) {
             sql.append("AND order_id = ? ");
             params.add(filter.getOrderId());
@@ -207,6 +155,11 @@ public class TransactionDAO {
             params.add(filter.getStatus());
         }
         
+        if (filter.getPaymentMethod() != null && !filter.getPaymentMethod().isEmpty()) {
+            sql.append("AND transaction_method = ? ");
+            params.add(filter.getPaymentMethod());
+        }
+        
         if (filter.getFromDate() != null) {
             sql.append("AND created_at >= ? ");
             params.add(Timestamp.valueOf(filter.getFromDate() + " 00:00:00"));
@@ -215,11 +168,6 @@ public class TransactionDAO {
         if (filter.getToDate() != null) {
             sql.append("AND created_at <= ? ");
             params.add(Timestamp.valueOf(filter.getToDate() + " 23:59:59"));
-        }
-        
-        if (filter.getCustomerId() != null && !filter.getCustomerId().isEmpty()) {
-            sql.append("AND order_id IN (SELECT order_id FROM orders WHERE customer_id = ?) ");
-            params.add(filter.getCustomerId());
         }
         
         String validSortBy = validateSortColumn(filter.getSortByOrDefault());
@@ -244,40 +192,60 @@ public class TransactionDAO {
         }
         return transactions;
     }
-    
+
     /**
-     * Counts transactions for a specific customer with filters.
+     * Counts transactions matching search criteria.
      *
-     * @param customerId the customer ID
-     * @param filter the filter criteria
-     * @return total count
+     * @param filter the search request with filter criteria
+     * @return total count of matching transactions
      * @throws Exception if database operation fails
      */
-    public int countByCustomerId(String customerId, TransactionFilterRequest filter) throws Exception {
+    public int getAllCount(TransactionSearchRequest filter) throws Exception {
         StringBuilder sql = new StringBuilder();
-        sql.append("SELECT COUNT(*) FROM transactions t JOIN orders o ON t.order_id = o.order_id ")
-           .append("WHERE o.customer_id = ? ");
+        sql.append("SELECT COUNT(*) FROM transactions WHERE 1=1 ");
         
         List<Object> params = new ArrayList<>();
-        params.add(customerId);
+
+        if (filter.getKeyword() != null && !filter.getKeyword().isEmpty()) {
+            sql.append("AND (LOWER(transaction_reference) LIKE LOWER(?) OR ")
+               .append("LOWER(processed_by) LIKE LOWER(?) OR ");
+            String searchPattern = "%" + filter.getKeyword() + "%";
+            params.add(searchPattern);
+            params.add(searchPattern);
+        }
+
+        if (filter.getCustomerId() != null && !filter.getCustomerId().isEmpty()) {
+            sql.append("AND processed_by = ? ");
+            params.add(filter.getCustomerId());
+        }
+        
+        if (filter.getOrderId() != null) {
+            sql.append("AND order_id = ? ");
+            params.add(filter.getOrderId());
+        }
         
         if (filter.getType() != null && !filter.getType().isEmpty()) {
-            sql.append("AND t.transaction_type = ? ");
+            sql.append("AND transaction_type = ? ");
             params.add(filter.getType());
         }
         
         if (filter.getStatus() != null && !filter.getStatus().isEmpty()) {
-            sql.append("AND t.transaction_status = ? ");
+            sql.append("AND transaction_status = ? ");
             params.add(filter.getStatus());
         }
         
+        if (filter.getPaymentMethod() != null && !filter.getPaymentMethod().isEmpty()) {
+            sql.append("AND transaction_method = ? ");
+            params.add(filter.getPaymentMethod());
+        }
+        
         if (filter.getFromDate() != null) {
-            sql.append("AND t.created_at >= ? ");
+            sql.append("AND created_at >= ? ");
             params.add(Timestamp.valueOf(filter.getFromDate() + " 00:00:00"));
         }
         
         if (filter.getToDate() != null) {
-            sql.append("AND t.created_at <= ? ");
+            sql.append("AND created_at <= ? ");
             params.add(Timestamp.valueOf(filter.getToDate() + " 23:59:59"));
         }
         
@@ -296,18 +264,36 @@ public class TransactionDAO {
     }
     
     /**
-     * Counts all transactions with filters (admin view).
+     * Gets transaction statistics based on filter criteria.
      *
-     * @param filter the filter criteria
-     * @return total count
+     * @param filter the search request with filter criteria
+     * @return Map containing transaction counts (total, payments, refunds, pendingRefunds)
      * @throws Exception if database operation fails
      */
-    public int countAll(TransactionFilterRequest filter) throws Exception {
+    public java.util.Map<String, Integer> getStats(TransactionSearchRequest filter) throws Exception {
         StringBuilder sql = new StringBuilder();
-        sql.append("SELECT COUNT(*) FROM transactions WHERE 1=1 ");
+        sql.append("SELECT ");
+        sql.append("COUNT(*) as total_count, ");
+        sql.append("SUM(CASE WHEN transaction_type = 'PAYMENT' THEN 1 ELSE 0 END) as payment_count, ");
+        sql.append("SUM(CASE WHEN transaction_type = 'REFUND' THEN 1 ELSE 0 END) as refund_count, ");
+        sql.append("SUM(CASE WHEN transaction_type = 'REFUND' AND transaction_status = 'PENDING' THEN 1 ELSE 0 END) as pending_refund_count ");
+        sql.append("FROM transactions WHERE 1=1 ");
         
         List<Object> params = new ArrayList<>();
         
+        if (filter.getKeyword() != null && !filter.getKeyword().isEmpty()) {
+            sql.append("AND (LOWER(transaction_reference) LIKE LOWER(?) OR ")
+               .append("LOWER(processed_by) LIKE LOWER(?) OR ");
+            String searchPattern = "%" + filter.getKeyword() + "%";
+            params.add(searchPattern);
+            params.add(searchPattern);
+        }
+        
+        if (filter.getCustomerId() != null && !filter.getCustomerId().isEmpty()) {
+            sql.append("AND processed_by = ? ");
+            params.add(filter.getCustomerId());
+        }
+
         if (filter.getOrderId() != null) {
             sql.append("AND order_id = ? ");
             params.add(filter.getOrderId());
@@ -323,6 +309,11 @@ public class TransactionDAO {
             params.add(filter.getStatus());
         }
         
+        if (filter.getPaymentMethod() != null && !filter.getPaymentMethod().isEmpty()) {
+            sql.append("AND transaction_method = ? ");
+            params.add(filter.getPaymentMethod());
+        }
+        
         if (filter.getFromDate() != null) {
             sql.append("AND created_at >= ? ");
             params.add(Timestamp.valueOf(filter.getFromDate() + " 00:00:00"));
@@ -333,23 +324,22 @@ public class TransactionDAO {
             params.add(Timestamp.valueOf(filter.getToDate() + " 23:59:59"));
         }
         
-        if (filter.getCustomerId() != null && !filter.getCustomerId().isEmpty()) {
-            sql.append("AND order_id IN (SELECT order_id FROM orders WHERE customer_id = ?) ");
-            params.add(filter.getCustomerId());
-        }
-        
         try (Connection conn = DBUtil.getConnection();
              PreparedStatement ps = conn.prepareStatement(sql.toString())) {
             for (int i = 0; i < params.size(); i++) {
                 ps.setObject(i + 1, params.get(i));
             }
             try (ResultSet rs = ps.executeQuery()) {
+                java.util.Map<String, Integer> stats = new java.util.HashMap<>();
                 if (rs.next()) {
-                    return rs.getInt(1);
+                    stats.put("total", rs.getInt("total_count"));
+                    stats.put("payments", rs.getInt("payment_count"));
+                    stats.put("refunds", rs.getInt("refund_count"));
+                    stats.put("pendingRefunds", rs.getInt("pending_refund_count"));
                 }
+                return stats;
             }
         }
-        return 0;
     }
     
     /**
@@ -413,6 +403,7 @@ public class TransactionDAO {
         switch (sortBy) {
             case "created_at":
             case "amount":
+            case "transaction_type":
             case "transaction_status":
             case "order_id":
                 return sortBy;

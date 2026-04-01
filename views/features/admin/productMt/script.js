@@ -194,31 +194,6 @@
     }
 
     /**
-     * Helper to populate a datalist for input suggestions (deprecated)
-     */
-    function populateDatalist(datalistId, options) {
-        var datalist = document.getElementById(datalistId);
-        if (!datalist) {
-            console.warn('Datalist not found:', datalistId);
-            return;
-        }
-        if (!options) {
-            console.warn('No options provided for:', datalistId);
-            return;
-        }
-
-        datalist.innerHTML = '';
-        
-        options.forEach(function (opt) {
-            if (opt) {
-                var option = document.createElement('option');
-                option.value = opt;
-                datalist.appendChild(option);
-            }
-        });
-    }
-
-    /**
      * Initialize all event listeners
      */
     function initializeEventListeners() {
@@ -332,6 +307,14 @@
         if (activateModal) {
             activateModal.addEventListener('click', function (e) {
                 if (e.target === this) closeActivateModal();
+            });
+        }
+
+        // Retry button
+        var retryBtn = document.getElementById('retryBtn');
+        if (retryBtn) {
+            retryBtn.addEventListener('click', function() {
+                loadProducts(1, 15);
             });
         }
     }
@@ -482,8 +465,12 @@
             
             updateStats(totalFiltered, activeCount, inactiveCount, lowStockCount);
             
-            // Render table
-            renderProductTable();
+            if (productsData.length === 0) {
+                showEmptyState();
+            } else {
+                renderProductTable();
+                showContent();
+            }
             
             if (pagination) {
                 pagination.update({
@@ -496,7 +483,7 @@
 
         } catch (error) {
             console.error('Error loading products:', error);
-            showTableError('Failed to load products');
+            showErrorState('Failed to load products. Please try again.');
         }
     }
 
@@ -504,11 +491,59 @@
      * Show loading state
      */
     function showLoadingState() {
-        document.getElementById('productTableBody').innerHTML = 
-            '<tr class="loading-row"><td colspan="7">' +
-            '<div class="loading-spinner"></div>' +
-            '<span>Loading products...</span>' +
-            '</td></tr>';
+        hideAllStates();
+        var loadingState = document.getElementById('loadingState');
+        if (loadingState) loadingState.classList.remove('hidden');
+    }
+
+    /**
+     * Show error state
+     */
+    function showErrorState(message) {
+        hideAllStates();
+        var errorState = document.getElementById('errorState');
+        var errorMessage = document.getElementById('errorMessage');
+        if (errorState) errorState.classList.remove('hidden');
+        if (errorMessage) errorMessage.textContent = message || 'Failed to load products. Please try again.';
+    }
+
+    /**
+     * Show empty state
+     */
+    function showEmptyState() {
+        hideAllStates();
+        var emptyState = document.getElementById('emptyState');
+        var emptyMessage = document.getElementById('emptyMessage');
+        if (emptyState) emptyState.classList.remove('hidden');
+        if (emptyMessage) {
+            var hasFilters = searchTerm || categoryFilter || statusFilter || stockFilter || 
+                ageGroupFilter || genderFilter || seasonalityFilter || minPrice !== null || maxPrice !== null;
+            emptyMessage.textContent = hasFilters 
+                ? 'No products match your filters. Try adjusting the filters.'
+                : 'No products in the system yet.';
+        }
+    }
+
+    /**
+     * Show content
+     */
+    function showContent() {
+        hideAllStates();
+        var content = document.getElementById('productsContent');
+        if (content) content.classList.remove('hidden');
+    }
+
+    /**
+     * Hide all states
+     */
+    function hideAllStates() {
+        var states = ['loadingState', 'errorState', 'emptyState'];
+        states.forEach(function(id) {
+            var el = document.getElementById(id);
+            if (el) el.classList.add('hidden');
+        });
+        var content = document.getElementById('productsContent');
+        if (content) content.classList.add('hidden');
     }
 
     /**
@@ -528,18 +563,6 @@
         var tbody = document.getElementById('productTableBody');
         var canUpdate = hasPermission(PERM_PRODUCT_UPDATE);
         var canDelete = hasPermission(PERM_PRODUCT_DELETE);
-        
-        if (productsData.length === 0) {
-            var hasFilters = searchTerm || categoryFilter || statusFilter || stockFilter || 
-                ageGroupFilter || genderFilter || seasonalityFilter || minPrice !== null || maxPrice !== null;
-            var emptyMessage = hasFilters 
-                ? 'No products match your filters' 
-                : 'No products found';
-            tbody.innerHTML = '<tr class="empty-state"><td colspan="7">' +
-                '<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>' +
-                '<p>' + emptyMessage + '</p></td></tr>';
-            return;
-        }
 
         var html = productsData.map(function (product) {
             var stockClass = getStockClass(product.stockLevel);
@@ -571,10 +594,10 @@
 
             var priceCell = '<div class="price-info">';
             if (product.discount > 0) {
-                priceCell += '<span class="original-price">$' + formatPrice(product.price) + '</span>';
-                priceCell += '<span class="final-price">$' + formatPrice(product.finalPrice || product.price) + '</span>';
+                priceCell += '<span class="original-price">₹' + formatPrice(product.price) + '</span>';
+                priceCell += '<span class="final-price">₹' + formatPrice(product.finalPrice || product.price) + '</span>';
             } else {
-                priceCell += '<span class="final-price">$' + formatPrice(product.price) + '</span>';
+                priceCell += '<span class="final-price">₹' + formatPrice(product.price) + '</span>';
             }
             priceCell += '</div>';
 
@@ -1016,11 +1039,6 @@
         });
     }
 
-    function showTableError(message) {
-        document.getElementById('productTableBody').innerHTML = 
-            '<tr class="empty-state"><td colspan="7">' + escapeHtml(message) + '</td></tr>';
-    }
-
     /**
      * View product details in modal
      */
@@ -1034,9 +1052,9 @@
         var categoryBadge = document.getElementById('viewCategoryBadge');
         categoryBadge.textContent = product.category || 'Uncategorized';
 
-        document.getElementById('viewPrice').textContent = '$' + formatPrice(product.price);
+        document.getElementById('viewPrice').textContent = '₹' + formatPrice(product.price);
         document.getElementById('viewDiscount').textContent = product.discount ? product.discount + '%' : 'None';
-        document.getElementById('viewFinalPrice').textContent = '$' + formatPrice(product.finalPrice || product.price);
+        document.getElementById('viewFinalPrice').textContent = '₹' + formatPrice(product.finalPrice || product.price);
         document.getElementById('viewTaxRate').textContent = product.taxRate ? product.taxRate + '%' : 'N/A';
 
         document.getElementById('viewStockLevel').textContent = getStockLabel(product.stockLevel);
@@ -1050,7 +1068,7 @@
         document.getElementById('viewSeasonality').textContent = product.seasonality || 'N/A';
         document.getElementById('viewLocation').textContent = product.location || 'N/A';
 
-        document.getElementById('viewShippingCost').textContent = product.shippingCost ? '$' + formatPrice(product.shippingCost) : 'N/A';
+        document.getElementById('viewShippingCost').textContent = product.shippingCost ? '₹' + formatPrice(product.shippingCost) : 'N/A';
         document.getElementById('viewShippingMethod').textContent = product.shippingMethod || 'N/A';
 
         document.getElementById('viewCreatedAt').textContent = formatDate(product.createdAt);

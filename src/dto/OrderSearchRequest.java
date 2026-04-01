@@ -1,7 +1,7 @@
 package dto;
 
 /**
- * OrderFilterRequest holds search and filter criteria for order listing.
+ * OrderSearchRequest holds search and filter criteria for order listing.
  * 
  * Includes:
  * - Customer filter (customerId)
@@ -12,9 +12,11 @@ package dto;
  * - Pagination parameters (page, size)
  * - Utility methods for default values
  */
-public class OrderFilterRequest {
+public class OrderSearchRequest {
+    private String keyword;
     private String customerId;
     private String status;
+    private String paymentStatus;
     private String fromDate;
     private String toDate;
     private Double minAmount;
@@ -24,10 +26,14 @@ public class OrderFilterRequest {
     private Integer page;
     private Integer size;
     
+    public String getKeyword() { return keyword; }
+    public void setKeyword(String keyword) { this.keyword = keyword; }
     public String getCustomerId() { return customerId; }
     public void setCustomerId(String customerId) { this.customerId = customerId; }
     public String getStatus() { return status; }
     public void setStatus(String status) { this.status = status; }
+    public String getPaymentStatus() { return paymentStatus; }
+    public void setPaymentStatus(String paymentStatus) { this.paymentStatus = paymentStatus; }
     public String getFromDate() { return fromDate; }
     public void setFromDate(String fromDate) { this.fromDate = fromDate; }
     public String getToDate() { return toDate; }
